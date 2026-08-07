@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Rust
+target/
+**/target/
+*.pdb
+
+# Swift / Xcode
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Zig / libghostty experiments
+.zig-cache/
+zig-out/
+apps/macos/Frameworks/GhosttyKit.xcframework/
+
+# Local Skep state and generated artifacts
+.skep/
+artifacts/
+*.tar.zst
+*.dmg
+*.app/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*~

@@ -1,0 +1,24 @@
+[Unit]
+Description=Skep remote microVM workspace daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=MSB_HOME=/var/lib/skep/microsandbox
+ExecStart=/usr/local/bin/skepd --socket /run/skep/skepd.sock --state-dir /var/lib/skep --microsandbox-bin /var/lib/skep/microsandbox/bin/msb
+Restart=on-failure
+RestartSec=2s
+RuntimeDirectory=skep
+RuntimeDirectoryMode=0750
+StateDirectory=skep
+StateDirectoryMode=0750
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/skep /run/skep
+
+[Install]
+WantedBy=multi-user.target

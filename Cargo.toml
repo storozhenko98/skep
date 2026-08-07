@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/skep-protocol",
+    "crates/skepd",
+    "crates/skepctl",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-Proprietary"
+authors = ["Mykyta Storozhenko <storozhenkomykyta@gmail.com>"]
+repository = "https://github.com/storozhenko98/skep"
+
+[workspace.dependencies]
+clap = { version = "4.5", features = ["derive"] }
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+skep-protocol = { path = "crates/skep-protocol" }
+thiserror = "2"
+tokio = { version = "1.43", features = ["fs", "io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync"] }
+uuid = { version = "1", features = ["serde", "v4"] }
