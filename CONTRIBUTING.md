@@ -52,6 +52,11 @@ Ghostty XCFramework are generated locally and intentionally ignored by Git.
 The full `npm run check` additionally validates signed release artifacts and is
 used from a release checkout where those ignored files are present.
 
+Swift dependencies are pinned in `apps/macos/Package.swift` and reviewed
+manually together with Ghostty framework upgrades. GitHub's Swift dependency
+updater cannot resolve this package until the ignored local Ghostty XCFramework
+has been built, so Dependabot is limited to Cargo and GitHub Actions.
+
 ## Pull requests
 
 Include:
