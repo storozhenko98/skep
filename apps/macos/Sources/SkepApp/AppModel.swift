@@ -88,6 +88,7 @@ final class AppModel: ObservableObject {
     @Published var showingAddHost = false
     @Published var showingInstallHostServiceConfirmation = false
     @Published var showingRemoveHostServiceConfirmation = false
+    @Published var showingPurgeHostConfirmation = false
     @Published var pendingDeletion: Workspace?
     @Published var pendingTemplateDeletion: Template?
     @Published var activeTerminal: TerminalSession?
@@ -611,6 +612,39 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func purgeHostServiceAndData() {
+        guard let host = selectedHost, !host.isLocal else { return }
+        showingPurgeHostConfirmation = false
+        Task {
+            let operationID = UUID()
+            activeRefreshID = operationID
+            isBusy = true
+            activityLabel = "Erasing Skep"
+            errorMessage = nil
+            operationNotice = nil
+            statusMessage = "Stopping every managed machine and erasing Skep from the VM…"
+            do {
+                let payload = try HostInstallerPayload.directory()
+                try await HostLifecycleClient(host: host).purge(payloadDirectory: payload)
+                guard selectedHostID == host.id, activeRefreshID == operationID else { return }
+                clearRuntimeState(for: host.id)
+                hostInfo = nil
+                hostPreflight = nil
+                hostServiceUpdateRequired = false
+                isBusy = false
+                activityLabel = nil
+                statusMessage = "Skep and all Skep-owned data were erased from the VM. Verifying…"
+                await refresh(hostID: host.id)
+            } catch {
+                guard selectedHostID == host.id, activeRefreshID == operationID else { return }
+                isBusy = false
+                activityLabel = nil
+                errorMessage = error.localizedDescription
+                statusMessage = "Could not completely erase Skep from the VM."
+            }
+        }
+    }
+
     func selectSection(_ section: HostSection) {
         selectedWorkspace = nil
         selectedSection = section
@@ -942,6 +976,22 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func clearRuntimeState(for hostID: UUID) {
+        readyHostIDs.remove(hostID)
+        workspaceCache[hostID] = []
+        workspaceTerminalSessions.removeAll { $0.host.id == hostID }
+        disconnectedWorkspaceIDs = Set(disconnectedWorkspaceIDs.filter { $0.hostID != hostID })
+        reconnectingWorkspaceIDs = Set(reconnectingWorkspaceIDs.filter { $0.hostID != hostID })
+        terminalConnectionIssues = terminalConnectionIssues.filter { $0.key.hostID != hostID }
+        automaticReconnectAttempts = automaticReconnectAttempts.filter { $0.key.hostID != hostID }
+        automaticReconnectPending = Set(automaticReconnectPending.filter { $0.hostID != hostID })
+        if selectedWorkspace?.hostID == hostID { selectedWorkspace = nil }
+        workspaces = []
+        templates = []
+        selectedBuilderID = nil
+        selectedTemplateID = nil
+    }
+
     private func reconnectTerminal(_ destination: WorkspaceDestination) {
         guard let host = hosts.first(where: { $0.id == destination.hostID }),
               let workspace = workspaceCache[destination.hostID]?.first(where: {
@@ -1071,6 +1121,7 @@ final class AppModel: ObservableObject {
         operationNotice = nil
         pendingDeletion = nil
         pendingTemplateDeletion = nil
+        showingPurgeHostConfirmation = false
         showingBuilderCreator = false
         showingTemplateCreator = false
         showingWorkspaceCreator = false

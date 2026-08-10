@@ -6,6 +6,7 @@ pub const PROTOCOL_VERSION: u32 = 1;
 pub mod method {
     pub const PING: &str = "ping";
     pub const HOST_INFO: &str = "host.info";
+    pub const PURGE_HOST: &str = "host.purge";
     pub const LIST_WORKSPACES: &str = "workspace.list";
     pub const GET_WORKSPACE: &str = "workspace.get";
     pub const CREATE_BUILDER: &str = "builder.create";

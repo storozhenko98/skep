@@ -55,8 +55,10 @@ before `skepctl` exists. The app first executes a read-only shell preflight over
 raw SSH/IAP. On a supported host, an explicit install action streams a
 checksummed Linux payload to a private temporary directory, installs the pinned
 Microsandbox runtime and Skep service through non-interactive sudo, then returns
-to the normal bridge protocol. Removal uses the same authenticated transport
-and preserves `/var/lib/skep`.
+to the normal bridge protocol. Both removal paths use the same authenticated
+transport. Uninstalling preserves `/var/lib/skep`; full erasure first invokes
+`host.purge` to stop every registered microVM and then deletes all Skep-owned
+state, runtime files, helpers, system integration, and the operator group.
 
 The local provider is a singleton identified as **This Mac**. It is never
 serialized with remote host records and cannot be removed from the sidebar.
@@ -73,7 +75,7 @@ running and whose autostart flag is enabled whenever the daemon starts.
 
 Protocol v1 includes:
 
-- `ping` and `host.info`;
+- `ping`, `host.info`, and the destructive preparation method `host.purge`;
 - `builder.create` and `builder.bootstrap`;
 - `template.publish`, `template.list`, `template.export`, and `template.delete`;
 - `workspace.create`, `workspace.get`, `workspace.list`, `workspace.start`,

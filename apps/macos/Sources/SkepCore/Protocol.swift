@@ -5,6 +5,7 @@ public let skepProtocolVersion = 1
 public enum SkepMethod {
     public static let ping = "ping"
     public static let hostInfo = "host.info"
+    public static let purgeHost = "host.purge"
     public static let listWorkspaces = "workspace.list"
     public static let getWorkspace = "workspace.get"
     public static let createWorkspace = "workspace.create"

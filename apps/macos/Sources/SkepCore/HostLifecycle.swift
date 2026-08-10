@@ -154,6 +154,14 @@ public struct HostLifecycleClient: Sendable {
         }.value
     }
 
+    public func purge(payloadDirectory: URL) async throws {
+        let invocation = try host.noninteractiveCommandInvocation(Self.purgeCommand)
+        try await Task.detached(priority: .userInitiated) {
+            let archive = try Self.makePayloadArchive(from: payloadDirectory)
+            _ = try Self.run(invocation: invocation, input: archive)
+        }.value
+    }
+
     static let payloadFiles = [
         "skepd",
         "skepctl",
@@ -247,6 +255,20 @@ public struct HostLifecycleClient: Sendable {
     tar -xzf - -C "$install_root"
     (cd "$install_root" && sha256sum -c SHA256SUMS)
     sudo -n "$install_root/uninstall.sh"
+    """#
+
+    static let purgeCommand = #"""
+    set -eu
+    umask 077
+    install_root=$(mktemp -d /tmp/skep-purge.XXXXXX)
+    cleanup() { rm -rf "$install_root"; }
+    trap cleanup EXIT HUP INT TERM
+    tar -xzf - -C "$install_root"
+    (cd "$install_root" && sha256sum -c SHA256SUMS)
+    operator_name=$(id -un)
+    sudo -n env SKEP_OPERATOR="$operator_name" "$install_root/install.sh" "$install_root"
+    sudo -n /usr/local/bin/skepctl call host.purge --compact
+    sudo -n "$install_root/uninstall.sh" --purge
     """#
 
     private static func makePayloadArchive(from directory: URL) throws -> Data {

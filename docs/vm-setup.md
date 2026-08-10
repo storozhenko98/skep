@@ -87,9 +87,13 @@ group membership applies. See the root README for commands.
 The GUI installer uploads checksummed `skepd`, `skepctl`, service, and installer
 files over the existing SSH/IAP connection. It installs the pinned
 Microsandbox runtime first, then enables `skepd`, waits for
-`/run/skep/skepd.sock`, and sends a protocol ping. GUI removal stops and
-disables the service and removes its binaries and sudo rule. It deliberately
-preserves `/var/lib/skep`, exports, templates, workspaces, and Microsandbox.
+`/run/skep/skepd.sock`, and sends a protocol ping. GUI removal offers two
+explicit paths. **Uninstall, keep data** stops and disables the service and
+removes its binaries and sudo rule while preserving `/var/lib/skep`. **Erase
+all data** first removes each managed microVM through Microsandbox, then deletes
+`/var/lib/skep`, exports, templates, workspaces, volumes, Microsandbox, the Skep
+helpers, systemd unit, sudo rule, runtime socket, and operator group. Neither
+action deletes the underlying VM.
 
 ## Sizing
 

@@ -134,6 +134,7 @@ impl SkepService {
             })),
             method::HOST_INFO => serde_json::to_value(self.host_info().await)
                 .map_err(|error| ServiceError::Internal(error.to_string())),
+            method::PURGE_HOST => self.purge_host().await,
             method::LIST_WORKSPACES => {
                 let state = self.state.lock().await;
                 serde_json::to_value(&state.workspaces)
@@ -611,6 +612,40 @@ chmod +x /usr/local/bin/start-docker
             .workspaces
             .retain(|item| item.id != params.workspace_id);
         self.save_locked(&state).await
+    }
+
+    async fn purge_host(&self) -> Result<Value, ServiceError> {
+        let (workspaces, template_count) = {
+            let state = self.state.lock().await;
+            (state.workspaces.clone(), state.templates.len())
+        };
+
+        if !workspaces.is_empty() {
+            self.ensure_runtime_ready().await?;
+        }
+
+        // Removing every registered sandbox through Microsandbox first ensures
+        // no microVM process is still using files under MSB_HOME when the host
+        // uninstaller deletes /var/lib/skep. Snapshot and volume files are then
+        // removed atomically with that Skep-owned directory.
+        for workspace in &workspaces {
+            self.run_msb(vec![
+                "rm".to_string(),
+                "--force".to_string(),
+                workspace.runtime_name.clone(),
+            ])
+            .await?;
+        }
+
+        let mut state = self.state.lock().await;
+        state.workspaces.clear();
+        state.templates.clear();
+        self.save_locked(&state).await?;
+        Ok(json!({
+            "prepared": true,
+            "workspacesRemoved": workspaces.len(),
+            "templatesRemoved": template_count,
+        }))
     }
 
     async fn set_autostart(&self, params: SetAutostartParams) -> Result<Workspace, ServiceError> {
@@ -1376,13 +1411,25 @@ mod tests {
             })
             .await
             .unwrap();
+        let purge = service
+            .handle(Request::new("purge", method::PURGE_HOST, json!({})))
+            .await;
+        assert!(purge.error.is_none());
+        assert_eq!(
+            purge
+                .result
+                .as_ref()
+                .and_then(|value| value.get("workspacesRemoved"))
+                .and_then(Value::as_u64),
+            Some(1)
+        );
         let state: PersistentState = serde_json::from_slice(
             &fs::read(temp.path().join("state/state.json"))
                 .await
                 .unwrap(),
         )
         .unwrap();
-        assert_eq!(state.workspaces.len(), 1);
+        assert!(state.workspaces.is_empty());
         assert!(state.templates.is_empty());
         let log = fs::read_to_string(temp.path().join("msb.log"))
             .await
@@ -1393,6 +1440,7 @@ mod tests {
         assert!(log.contains("exec sleep infinity"));
         assert!(log.contains(&format!("start {}", workspace.runtime_name)));
         assert!(log.contains("volume rm"));
+        assert!(log.contains(&format!("rm --force {}", builder.runtime_name)));
         let create_line = log
             .lines()
             .find(|line| line.starts_with("create ubuntu:24.04"))

@@ -283,6 +283,16 @@ import Testing
     #expect(!command.contains("check test -x /var/lib/skep/microsandbox/bin/msb"))
 }
 
+@Test func remotePurgeUpdatesTheDaemonBeforeDestroyingAllHostState() {
+    let command = HostLifecycleClient.purgeCommand
+    #expect(SkepMethod.purgeHost == "host.purge")
+    #expect(command.contains("install.sh"))
+    #expect(command.contains("skepctl call host.purge --compact"))
+    #expect(command.contains("uninstall.sh\" --purge"))
+    #expect(command.range(of: "install.sh")!.lowerBound < command.range(of: "host.purge")!.lowerBound)
+    #expect(command.range(of: "host.purge")!.lowerBound < command.range(of: "uninstall.sh")!.lowerBound)
+}
+
 @Test func comparesRemoteHelpersWithBundledPayloadManifest() throws {
     let payload = FileManager.default.temporaryDirectory
         .appendingPathComponent("skep-remote-payload-\(UUID().uuidString)", isDirectory: true)

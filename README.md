@@ -147,8 +147,11 @@ read-only preflight, then choose **Install Skep**. Automatic setup requires
 Ubuntu 24.04 x86-64, systemd, outbound HTTPS, and non-interactive sudo for the
 SSH/IAP login. The packaged app uploads a checksummed Linux payload, installs
 the pinned Microsandbox runtime, enables `skepd`, waits for its Unix socket,
-and verifies the daemon. **Remove Skep** removes the control binaries and
-system service while preserving `/var/lib/skep` and Microsandbox.
+and verifies the daemon. **Uninstall, keep data** removes the control binaries
+and system service while preserving `/var/lib/skep` and Microsandbox. The
+remote-host Overview also has a typed-confirmation **Erase all data** action
+that first stops every managed microVM and then permanently removes all
+Skep-owned runtime state from the VM without deleting the VM itself.
 
 The following commands remain available for manual setup and diagnostics.
 

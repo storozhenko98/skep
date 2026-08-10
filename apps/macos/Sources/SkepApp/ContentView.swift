@@ -9,6 +9,7 @@ struct ContentView: View {
     @ObservedObject var model: AppModel
     @AppStorage("skep.appearance") private var appearance = SkepAppearance.dark.rawValue
     @StateObject private var connectivity = NetworkReachability()
+    @State private var purgeHostConfirmation = ""
 
     var body: some View {
         HStack(spacing: 0) {
@@ -68,15 +69,29 @@ struct ContentView: View {
                 Text("Skep will upload its bundled, checksummed Linux resources, install skepctl, skepd, and the pinned Microsandbox runtime with sudo, then enable the skepd system service.")
             }
         }
-        .alert("Remove the Skep host service?", isPresented: $model.showingRemoveHostServiceConfirmation) {
+        .alert("Uninstall Skep and keep its data?", isPresented: $model.showingRemoveHostServiceConfirmation) {
             Button("Cancel", role: .cancel) {}
-            Button("Remove Skep", role: .destructive) { model.removeHostService() }
+            Button("Uninstall, keep data", role: .destructive) { model.removeHostService() }
         } message: {
             if model.selectedHost?.isLocal == true {
                 Text("This removes the local Skep helpers and Microsandbox runtime. Local workspace state and exports are preserved.")
             } else {
                 Text("This removes skepctl, skepd, the system service, and its sudo rule. Workspaces, templates, exports, and Microsandbox under /var/lib/skep are preserved.")
             }
+        }
+        .alert("Erase all Skep data from this VM?", isPresented: $model.showingPurgeHostConfirmation) {
+            TextField("Type \(purgeConfirmationHostName)", text: $purgeHostConfirmation)
+            Button("Cancel", role: .cancel) { purgeHostConfirmation = "" }
+            Button("Erase everything", role: .destructive) {
+                model.purgeHostServiceAndData()
+                purgeHostConfirmation = ""
+            }
+            .disabled(purgeHostConfirmation != purgeConfirmationHostName)
+        } message: {
+            Text("This permanently stops and deletes every Skep builder and workspace, all templates, Docker volumes, exports, the Microsandbox runtime, skepd, skepctl, the system service, sudo rule, and /var/lib/skep. The underlying VM is not deleted. This cannot be undone.")
+        }
+        .onChange(of: model.showingPurgeHostConfirmation) { _, showing in
+            if showing { purgeHostConfirmation = "" }
         }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)) { _ in
             model.beginAutomaticTerminalReconnectWindow()
@@ -155,7 +170,7 @@ struct ContentView: View {
                     }
                         .buttonStyle(.plain)
                     Button { model.removeSelectedHost() } label: {
-                        Text("REMOVE")
+                        Text("FORGET HOST")
                             .frame(maxWidth: .infinity, minHeight: 26, alignment: .trailing)
                             .contentShape(Rectangle())
                     }
@@ -183,6 +198,10 @@ struct ContentView: View {
         }
         .padding(.horizontal, 6)
         .padding(.bottom, 8)
+    }
+
+    private var purgeConfirmationHostName: String {
+        model.selectedHost?.name ?? ""
     }
 
     @ViewBuilder
@@ -880,7 +899,7 @@ private struct HostDetailView: View {
 
                     switch model.selectedSection {
                     case .overview:
-                        HostOverviewPage(model: model, info: info, local: host.isLocal)
+                        HostOverviewPage(model: model, info: info, host: host)
                     case .builders:
                         BuildersManagementPage(
                             model: model,
@@ -1504,10 +1523,15 @@ private struct HostServicePanel: View {
                 .disabled(!preflight.supportsAutomaticInstall || model.isBusy)
             }
             if preflight.skepctlInstalled || preflight.skepdInstalled {
-                Button("Remove Skep") {
+                Button("Uninstall, keep data") {
                     model.showingRemoveHostServiceConfirmation = true
                 }
                 .buttonStyle(SecondaryButtonStyle())
+                .disabled(!preflight.passwordlessSudo || model.isBusy)
+                Button("Erase all data…") {
+                    model.showingPurgeHostConfirmation = true
+                }
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(!preflight.passwordlessSudo || model.isBusy)
             }
         }
@@ -1753,16 +1777,19 @@ private struct HostOverviewPage: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var model: AppModel
     let info: HostInfo
-    let local: Bool
+    let host: SSHHost
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            HostOverview(info: info, local: local)
+            HostOverview(info: info, local: host.isLocal)
             if model.managedWorkspaces.isEmpty {
                 firstWorkspaceGuide
             } else {
                 resourceSummary
                 activeWorkspaces
+            }
+            if !host.isLocal {
+                HostDangerZone(model: model, host: host)
             }
         }
     }
@@ -1885,6 +1912,59 @@ private struct HostOverviewPage: View {
                 .padding(16)
             }
         }
+        .overlay(Rectangle().stroke(SkepUI.strongRule(colorScheme), lineWidth: 1))
+    }
+}
+
+private struct HostDangerZone: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject var model: AppModel
+    let host: SSHHost
+
+    private var canModifyInstallation: Bool {
+        model.hostPreflight?.passwordlessSudo == true && !model.isBusy
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 22) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("DANGER ZONE")
+                        .font(SkepUI.eyebrow)
+                        .tracking(0.9)
+                    Text("Remove Skep from this VM")
+                        .font(.system(size: 17, weight: .semibold))
+                    Text("Uninstall only the service and preserve its state, or permanently erase every Skep-owned machine, snapshot, volume, export, runtime, and control file. The VM itself is never deleted here.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(SkepUI.muted(colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 20)
+                HStack(spacing: 10) {
+                    Button("Uninstall, keep data") {
+                        model.showingRemoveHostServiceConfirmation = true
+                    }
+                    .buttonStyle(SecondaryButtonStyle(minWidth: 154))
+                    .disabled(!canModifyInstallation)
+
+                    Button("Erase all data…") {
+                        model.showingPurgeHostConfirmation = true
+                    }
+                    .buttonStyle(PrimaryButtonStyle(minWidth: 142))
+                    .disabled(!canModifyInstallation)
+                }
+            }
+            .padding(18)
+
+            if model.hostPreflight?.passwordlessSudo != true {
+                Rectangle().fill(SkepUI.rule(colorScheme)).frame(height: 1)
+                Text("These actions require a working connection and non-interactive sudo on \(host.name).")
+                    .font(.system(size: 11))
+                    .foregroundStyle(SkepUI.muted(colorScheme))
+                    .padding(18)
+            }
+        }
+        .background(SkepUI.faint(colorScheme))
         .overlay(Rectangle().stroke(SkepUI.strongRule(colorScheme), lineWidth: 1))
     }
 }
