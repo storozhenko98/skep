@@ -8,6 +8,12 @@ let package = Package(
     products: [
         .executable(name: "Skep", targets: ["SkepApp"]),
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/sparkle-project/Sparkle",
+            exact: "2.9.5"
+        ),
+    ],
     targets: [
         .target(name: "SkepCore"),
         .binaryTarget(
@@ -24,7 +30,11 @@ let package = Package(
         ),
         .executableTarget(
             name: "SkepApp",
-            dependencies: ["SkepCore", "SkepTerminal"]
+            dependencies: [
+                "SkepCore",
+                "SkepTerminal",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ]
         ),
         .testTarget(
             name: "SkepCoreTests",

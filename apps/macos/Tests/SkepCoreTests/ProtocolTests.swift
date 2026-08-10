@@ -134,6 +134,81 @@ import Testing
     let invocation = try host.interactiveSSHArguments()
     #expect(invocation.arguments.contains("--ssh-flag=-lubuntu"))
     #expect(!invocation.arguments.contains("--ssh-flag"))
+    #expect(!invocation.arguments.contains("--ssh-flag=-tt"))
+}
+
+@Test func gcloudWorkspaceTerminalForcesRemotePTY() throws {
+    let host = SSHHost(
+        name: "gce",
+        kind: .gcloudIAP,
+        username: "ubuntu",
+        gcloudInstance: "skep-vm",
+        gcloudProject: "demo",
+        gcloudZone: "us-central1-a"
+    )
+    let invocation = try host.workspaceShellInvocation(workspaceID: "workspace-id")
+    #expect(invocation.arguments.contains("--ssh-flag=-tt"))
+    #expect(invocation.arguments.contains("--command"))
+    #expect(invocation.arguments.contains(where: {
+        $0.contains("skepctl") && $0.contains("workspace-shell") && $0.contains("workspace-id")
+    }))
+}
+
+@Test func expiredGoogleCloudCredentialsAreClassifiedAsReauthentication() {
+    let host = SSHHost(
+        name: "gcloud-integration",
+        kind: .gcloudIAP,
+        gcloudInstance: "skep-vm",
+        gcloudProject: "demo",
+        gcloudZone: "us-central1-a"
+    )
+    let issue = HostConnectionIssue.classify(
+        host: host,
+        diagnostic: "There was a problem refreshing your current auth tokens: Reauthentication failed. cannot prompt during non-interactive execution. Please run: gcloud auth login"
+    )
+
+    #expect(issue.kind == .googleCloudAuthentication)
+    #expect(issue.requiresGoogleCloudAuthentication)
+}
+
+@Test func googleCloudIAPPermissionFailureIsNotMisclassifiedAsExpiredAuth() {
+    let host = SSHHost(
+        name: "gcloud-integration",
+        kind: .gcloudIAP,
+        gcloudInstance: "skep-vm",
+        gcloudProject: "demo",
+        gcloudZone: "us-central1-a"
+    )
+    let issue = HostConnectionIssue.classify(
+        host: host,
+        diagnostic: "Permission denied: iap.tunnelInstances.accessViaIAP"
+    )
+
+    #expect(issue.kind == .permissionDenied)
+    #expect(!issue.requiresGoogleCloudAuthentication)
+}
+
+@Test func networkFailureIsClassifiedSeparatelyFromAuthentication() {
+    let host = SSHHost(name: "remote", hostname: "example.invalid")
+    let issue = HostConnectionIssue.classify(
+        host: host,
+        diagnostic: "ssh: Could not resolve hostname example.invalid"
+    )
+
+    #expect(issue.kind == .networkUnavailable)
+}
+
+@Test func googleCloudAuthenticationInvocationLaunchesBrowserWithoutPrompting() {
+    let invocation = GCloudCLI.authenticationInvocation()
+
+    #expect(invocation.executable == "/usr/bin/env" || invocation.executable.hasSuffix("/gcloud"))
+    #expect(invocation.arguments.suffix(4) == ["auth", "login", "--quiet", "--launch-browser"])
+}
+
+@Test func directSSHWorkspaceTerminalForcesRemotePTY() throws {
+    let host = SSHHost(name: "test", hostname: "example.test", username: "operator")
+    let invocation = try host.workspaceShellInvocation(workspaceID: "workspace-id")
+    #expect(invocation.arguments.contains("-tt"))
 }
 
 @Test func directSSHNoninteractiveCommandUsesBatchMode() throws {
@@ -155,6 +230,8 @@ import Testing
     systemd=1
     skepctl=0
     skepd=0
+    skepctl_sha256=
+    skepd_sha256=
     daemon_active=0
     daemon_socket=0
     microsandbox=0
@@ -166,6 +243,7 @@ import Testing
     #expect(preflight.serviceState == .notInstalled)
     #expect(preflight.supportsAutomaticInstall)
     #expect(!preflight.kvmDevice)
+    #expect(preflight.skepctlSHA256 == nil)
 }
 
 @Test func parsesReadyHostPreflight() throws {
@@ -178,6 +256,8 @@ import Testing
     systemd=1
     skepctl=1
     skepd=1
+    skepctl_sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    skepd_sha256=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     daemon_active=1
     daemon_socket=1
     microsandbox=1
@@ -189,6 +269,56 @@ import Testing
     #expect(preflight.serviceState == .ready)
     #expect(preflight.microsandboxInstalled)
     #expect(preflight.kvmDevice)
+    #expect(preflight.skepctlSHA256?.hasPrefix("aaaa") == true)
+}
+
+@Test func remotePreflightUsesAuthorizedBridgeForProtectedRuntimeState() {
+    let command = HostLifecycleClient.preflightCommand
+    #expect(command.contains("sudo -n /usr/local/bin/skepctl bridge"))
+    #expect(command.contains(#""method":"ping""#))
+    #expect(command.contains(#""method":"host.info""#))
+    #expect(command.contains("skepctl_sha256"))
+    #expect(command.contains("skepd_sha256"))
+    #expect(!command.contains("check test -S /run/skep/skepd.sock"))
+    #expect(!command.contains("check test -x /var/lib/skep/microsandbox/bin/msb"))
+}
+
+@Test func comparesRemoteHelpersWithBundledPayloadManifest() throws {
+    let payload = FileManager.default.temporaryDirectory
+        .appendingPathComponent("skep-remote-payload-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: payload) }
+    try FileManager.default.createDirectory(at: payload, withIntermediateDirectories: true)
+    let ctlHash = String(repeating: "a", count: 64)
+    let daemonHash = String(repeating: "b", count: 64)
+    try "\(daemonHash)  skepd\n\(ctlHash)  skepctl\n".write(
+        to: payload.appendingPathComponent("SHA256SUMS"),
+        atomically: true,
+        encoding: .utf8
+    )
+    let output = """
+    skep_preflight=1
+    hostname=dev
+    os_id=ubuntu
+    os_version=24.04
+    architecture=x86_64
+    systemd=1
+    skepctl=1
+    skepd=1
+    skepctl_sha256=\(ctlHash)
+    skepd_sha256=\(daemonHash)
+    daemon_active=1
+    daemon_socket=1
+    microsandbox=1
+    cpu_virtualization=1
+    kvm_device=1
+    passwordless_sudo=1
+    """
+    let current = try HostPreflight.parse(Data(output.utf8))
+    let client = HostLifecycleClient(host: SSHHost(name: "test", hostname: "example.test", username: "root"))
+    #expect(try !client.updateRequired(preflight: current, payloadDirectory: payload))
+
+    let stale = try HostPreflight.parse(Data(output.replacingOccurrences(of: ctlHash, with: String(repeating: "c", count: 64)).utf8))
+    #expect(try client.updateRequired(preflight: stale, payloadDirectory: payload))
 }
 
 @Test func parsesPastedGCloudIAPCommand() throws {
@@ -276,4 +406,8 @@ import Testing
     let preflight = try await HostLifecycleClient(host: host).inspect()
     #expect(preflight.hostname != "unknown")
     #expect(preflight.architecture == "x86_64")
+    #expect(preflight.serviceState == .ready)
+    #expect(preflight.daemonActive)
+    #expect(preflight.daemonSocket)
+    #expect(preflight.microsandboxInstalled)
 }

@@ -61,11 +61,23 @@ struct OperationNotice: Equatable {
     let message: String
 }
 
+struct WorkspaceDestination: Hashable, Sendable {
+    let hostID: UUID
+    let workspaceID: String
+}
+
+enum TerminalConnectionState: Equatable {
+    case connected
+    case reconnecting
+    case disconnected
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published var hosts: [SSHHost]
     @Published var selectedHostID: UUID?
     @Published var hostPreflight: HostPreflight?
+    @Published var hostServiceUpdateRequired = false
     @Published var localRuntimeStatus: LocalRuntimeStatus?
     @Published var hostInfo: HostInfo?
     @Published var workspaces: [Workspace] = []
@@ -79,6 +91,16 @@ final class AppModel: ObservableObject {
     @Published var pendingDeletion: Workspace?
     @Published var pendingTemplateDeletion: Template?
     @Published var activeTerminal: TerminalSession?
+    @Published var selectedWorkspace: WorkspaceDestination?
+    @Published private(set) var expandedHostIDs: Set<UUID> = [SSHHost.localID]
+    @Published private(set) var readyHostIDs: Set<UUID> = []
+    @Published private(set) var workspaceCache: [UUID: [Workspace]] = [:]
+    @Published private(set) var workspaceTerminalSessions: [TerminalSession] = []
+    @Published private(set) var disconnectedWorkspaceIDs: Set<WorkspaceDestination> = []
+    @Published private(set) var reconnectingWorkspaceIDs: Set<WorkspaceDestination> = []
+    @Published private(set) var hostConnectionIssues: [UUID: HostConnectionIssue] = [:]
+    @Published private(set) var terminalConnectionIssues: [WorkspaceDestination: HostConnectionIssue] = [:]
+    @Published private(set) var reauthenticatingHostIDs: Set<UUID> = []
     @Published var lastExportPath: String?
     @Published var selectedSection: HostSection = .overview
     @Published var activeResourceOperation: ResourceOperation?
@@ -100,6 +122,9 @@ final class AppModel: ObservableObject {
     private let repository: HostRepository
     private var profileWasSeededForHost: UUID?
     private var activeRefreshID: UUID?
+    private var automaticReconnectUntil: Date?
+    private var automaticReconnectAttempts: [WorkspaceDestination: Int] = [:]
+    private var automaticReconnectPending: Set<WorkspaceDestination> = []
 
     init(repository: HostRepository = .live) {
         self.repository = repository
@@ -136,14 +161,212 @@ final class AppModel: ObservableObject {
     }
 
     var selectedHostIsReady: Bool {
-        guard let host = selectedHost, hostInfo != nil else { return false }
+        guard let host = selectedHost,
+              hostInfo != nil,
+              hostConnectionIssues[host.id] == nil else { return false }
         return host.isLocal
             ? localRuntimeStatus?.state == .ready
             : hostPreflight?.serviceState == .ready
     }
 
+    var selectedWorkspaceItem: Workspace? {
+        guard let selectedWorkspace else { return nil }
+        return workspaceCache[selectedWorkspace.hostID]?.first {
+            $0.id == selectedWorkspace.workspaceID
+        }
+    }
+
+    func cachedWorkspaces(for hostID: UUID) -> [Workspace] {
+        workspaceCache[hostID] ?? []
+    }
+
+    func hasLoadedWorkspaces(for hostID: UUID) -> Bool {
+        workspaceCache[hostID] != nil
+    }
+
+    func isHostExpanded(_ hostID: UUID) -> Bool {
+        expandedHostIDs.contains(hostID)
+    }
+
+    func isHostReady(_ hostID: UUID) -> Bool {
+        readyHostIDs.contains(hostID) && hostConnectionIssues[hostID] == nil
+    }
+
+    func hostConnectionIssue(for hostID: UUID) -> HostConnectionIssue? {
+        hostConnectionIssues[hostID]
+    }
+
+    func isReauthenticatingGoogleCloud(hostID: UUID) -> Bool {
+        reauthenticatingHostIDs.contains(hostID)
+    }
+
+    func isWorkspaceSelected(hostID: UUID, workspaceID: String) -> Bool {
+        selectedWorkspace == WorkspaceDestination(hostID: hostID, workspaceID: workspaceID)
+    }
+
+    func isWorkspaceSessionActive(_ session: TerminalSession) -> Bool {
+        guard let selectedWorkspace else { return false }
+        return session.matches(
+            hostID: selectedWorkspace.hostID,
+            workspaceID: selectedWorkspace.workspaceID
+        )
+    }
+
+    func terminalConnectionState(for session: TerminalSession) -> TerminalConnectionState {
+        guard let workspaceID = session.workspaceID else { return .connected }
+        let destination = WorkspaceDestination(hostID: session.host.id, workspaceID: workspaceID)
+        if terminalConnectionIssues[destination] != nil || hostConnectionIssues[session.host.id] != nil {
+            return .disconnected
+        }
+        if disconnectedWorkspaceIDs.contains(destination) { return .disconnected }
+        if reconnectingWorkspaceIDs.contains(destination) { return .reconnecting }
+        return .connected
+    }
+
+    func terminalConnectionIssue(for session: TerminalSession) -> HostConnectionIssue? {
+        guard let workspaceID = session.workspaceID else { return nil }
+        let destination = WorkspaceDestination(hostID: session.host.id, workspaceID: workspaceID)
+        return terminalConnectionIssues[destination] ?? hostConnectionIssues[session.host.id]
+    }
+
+    func workspaceTerminalConnectionState(
+        hostID: UUID,
+        workspaceID: String
+    ) -> TerminalConnectionState? {
+        guard let session = workspaceTerminalSessions.first(where: {
+            $0.matches(hostID: hostID, workspaceID: workspaceID)
+        }) else { return nil }
+        return terminalConnectionState(for: session)
+    }
+
+    func workspaceConnectionIssue(hostID: UUID, workspaceID: String) -> HostConnectionIssue? {
+        let destination = WorkspaceDestination(hostID: hostID, workspaceID: workspaceID)
+        return terminalConnectionIssues[destination] ?? hostConnectionIssues[hostID]
+    }
+
+    func workspaceTerminalDidExit(sessionID: UUID) {
+        guard let session = workspaceTerminalSessions.first(where: { $0.id == sessionID }),
+              let workspaceID = session.workspaceID else { return }
+        let destination = WorkspaceDestination(hostID: session.host.id, workspaceID: workspaceID)
+        reconnectingWorkspaceIDs.remove(destination)
+        disconnectedWorkspaceIDs.insert(destination)
+
+        if !session.host.isLocal {
+            Task { [weak self] in
+                await self?.diagnoseWorkspaceTerminalDisconnect(destination, host: session.host)
+            }
+        }
+
+        if let automaticReconnectUntil, Date() <= automaticReconnectUntil {
+            scheduleAutomaticReconnect(destination)
+        }
+    }
+
+    func reconnectWorkspaceTerminal(hostID: UUID, workspaceID: String) {
+        let destination = WorkspaceDestination(hostID: hostID, workspaceID: workspaceID)
+        hostConnectionIssues.removeValue(forKey: hostID)
+        terminalConnectionIssues.removeValue(forKey: destination)
+        automaticReconnectAttempts[destination] = 0
+        automaticReconnectPending.remove(destination)
+        reconnectTerminal(destination)
+    }
+
+    func reauthenticateGoogleCloud(hostID: UUID) {
+        guard let host = hosts.first(where: { $0.id == hostID }),
+              host.kind == .gcloudIAP,
+              !reauthenticatingHostIDs.contains(hostID) else { return }
+
+        reauthenticatingHostIDs.insert(hostID)
+        statusMessage = "Opening Google Cloud authentication…"
+        Task { [weak self] in
+            guard let self else { return }
+            defer { self.reauthenticatingHostIDs.remove(hostID) }
+            do {
+                try await GCloudCLI.authenticate()
+                self.hostConnectionIssues.removeValue(forKey: hostID)
+                self.errorMessage = nil
+                self.statusMessage = "Google Cloud authentication restored. Reconnecting…"
+                await self.refresh(hostID: hostID)
+                guard self.hostConnectionIssues[hostID] == nil else { return }
+                let destinations = self.disconnectedWorkspaceIDs.filter { $0.hostID == hostID }
+                for destination in destinations {
+                    self.reconnectWorkspaceTerminal(
+                        hostID: destination.hostID,
+                        workspaceID: destination.workspaceID
+                    )
+                }
+            } catch {
+                let classified = HostConnectionIssue.classify(
+                    host: host,
+                    diagnostic: error.localizedDescription
+                )
+                let issue = classified.kind == .googleCloudCLIUnavailable
+                    ? classified
+                    : HostConnectionIssue(
+                        kind: .googleCloudAuthentication,
+                        diagnostic: error.localizedDescription
+                    )
+                self.hostConnectionIssues[hostID] = issue
+                self.readyHostIDs.remove(hostID)
+                self.errorMessage = error.localizedDescription
+                self.statusMessage = "Google Cloud authentication is still required."
+            }
+        }
+    }
+
+    func beginAutomaticTerminalReconnectWindow() {
+        automaticReconnectUntil = Date().addingTimeInterval(30)
+        automaticReconnectAttempts.removeAll()
+        for destination in disconnectedWorkspaceIDs {
+            scheduleAutomaticReconnect(destination, immediate: true)
+        }
+    }
+
+    func toggleHostExpansion(_ hostID: UUID) {
+        if expandedHostIDs.contains(hostID) {
+            expandedHostIDs.remove(hostID)
+        } else {
+            expandedHostIDs.insert(hostID)
+        }
+    }
+
     func selectHost(_ id: UUID?) {
+        selectedWorkspace = nil
+        if let id { expandedHostIDs.insert(id) }
         guard selectedHostID != id else { return }
+        changeSelectedHost(to: id)
+    }
+
+    func selectWorkspace(hostID: UUID, workspace: Workspace) {
+        guard workspace.kind == .workspace,
+              hosts.contains(where: { $0.id == hostID }) else { return }
+        expandedHostIDs.insert(hostID)
+        if selectedHostID != hostID {
+            changeSelectedHost(to: hostID)
+        }
+        selectedWorkspace = WorkspaceDestination(hostID: hostID, workspaceID: workspace.id)
+        operationNotice = nil
+        if workspace.status == .running,
+           let host = hosts.first(where: { $0.id == hostID }) {
+            ensureWorkspaceTerminal(host: host, workspace: workspace)
+        }
+    }
+
+    func showSelectedHostManagement() {
+        selectedWorkspace = nil
+    }
+
+    func openSelectedWorkspaceTerminal() {
+        guard let selectedWorkspace,
+              let host = hosts.first(where: { $0.id == selectedWorkspace.hostID }),
+              let workspace = workspaceCache[selectedWorkspace.hostID]?.first(where: {
+                  $0.id == selectedWorkspace.workspaceID
+              }),
+              workspace.status == .running else { return }
+        ensureWorkspaceTerminal(host: host, workspace: workspace)
+    }
+
+    private func changeSelectedHost(to id: UUID?) {
         selectedHostID = id
         resetSelectedHostState()
         if id == nil {
@@ -174,6 +397,18 @@ final class AppModel: ObservableObject {
     func removeSelectedHost() {
         guard let id = selectedHostID, id != SSHHost.localID else { return }
         hosts.removeAll { $0.id == id }
+        expandedHostIDs.remove(id)
+        readyHostIDs.remove(id)
+        hostConnectionIssues.removeValue(forKey: id)
+        workspaceCache.removeValue(forKey: id)
+        workspaceTerminalSessions.removeAll { $0.host.id == id }
+        disconnectedWorkspaceIDs = Set(disconnectedWorkspaceIDs.filter { $0.hostID != id })
+        reconnectingWorkspaceIDs = Set(reconnectingWorkspaceIDs.filter { $0.hostID != id })
+        terminalConnectionIssues = terminalConnectionIssues.filter { $0.key.hostID != id }
+        reauthenticatingHostIDs.remove(id)
+        automaticReconnectAttempts = automaticReconnectAttempts.filter { $0.key.hostID != id }
+        automaticReconnectPending = Set(automaticReconnectPending.filter { $0.hostID != id })
+        if selectedWorkspace?.hostID == id { selectedWorkspace = nil }
         persistHosts()
         selectHost(hosts.first?.id)
     }
@@ -191,6 +426,10 @@ final class AppModel: ObservableObject {
 
     func openTerminal(for workspace: Workspace) {
         guard let host = selectedHost else { return }
+        if workspace.kind == .workspace {
+            selectWorkspace(hostID: host.id, workspace: workspace)
+            return
+        }
         activeTerminal = TerminalSession(
             host: host,
             target: .workspace(id: workspace.id, name: workspace.name)
@@ -217,21 +456,47 @@ final class AppModel: ObservableObject {
                 return
             }
             let lifecycle = HostLifecycleClient(host: host)
-            let preflight = try await lifecycle.inspect()
+            var preflight = try await lifecycle.inspect()
             guard selectedHostID == hostID, activeRefreshID == refreshID else { return }
             hostPreflight = preflight
+            hostServiceUpdateRequired = false
+            hostConnectionIssues.removeValue(forKey: hostID)
 
             switch preflight.serviceState {
             case .notInstalled:
+                readyHostIDs.remove(hostID)
                 statusMessage = "SSH connected. Install Skep to continue."
                 return
             case .incomplete:
+                readyHostIDs.remove(hostID)
                 statusMessage = "SSH connected. The Skep installation is incomplete."
                 return
             case .stopped:
+                readyHostIDs.remove(hostID)
                 statusMessage = "SSH connected. The Skep daemon is not running."
                 return
             case .ready:
+                let payload = try HostInstallerPayload.directory()
+                if try lifecycle.updateRequired(preflight: preflight, payloadDirectory: payload) {
+                    hostServiceUpdateRequired = true
+                    guard preflight.supportsAutomaticUpdate else {
+                        readyHostIDs.remove(hostID)
+                        statusMessage = "SSH connected. Update the Skep host service to continue."
+                        return
+                    }
+                    activityLabel = "Updating host service"
+                    statusMessage = "Updating the Skep host service…"
+                    try await lifecycle.update(payloadDirectory: payload)
+                    preflight = try await lifecycle.inspect()
+                    guard selectedHostID == hostID, activeRefreshID == refreshID else { return }
+                    hostPreflight = preflight
+                    hostServiceUpdateRequired = false
+                    guard preflight.serviceState == .ready else {
+                        readyHostIDs.remove(hostID)
+                        statusMessage = "The updated Skep host service did not become ready."
+                        return
+                    }
+                }
                 activityLabel = "Loading host"
             }
 
@@ -244,6 +509,8 @@ final class AppModel: ObservableObject {
             hostInfo = snapshot.0
             workspaces = snapshot.1
             templates = snapshot.2
+            rememberWorkspaceSnapshot(snapshot.1, for: host)
+            hostConnectionIssues.removeValue(forKey: hostID)
             if profileWasSeededForHost != hostID {
                 draftProfile = snapshot.0.suggestedProfile
                 profileWasSeededForHost = hostID
@@ -257,13 +524,19 @@ final class AppModel: ObservableObject {
             hostInfo = nil
             workspaces = []
             templates = []
+            readyHostIDs.remove(hostID)
             errorMessage = error.localizedDescription
             if host.isLocal {
                 statusMessage = "The local Skep runtime could not respond."
             } else {
-                statusMessage = hostPreflight == nil
-                    ? "Could not connect to this host."
-                    : "The Skep host service could not respond."
+                let issue = HostConnectionIssue.classify(
+                    host: host,
+                    diagnostic: error.localizedDescription
+                )
+                hostConnectionIssues[hostID] = issue
+                statusMessage = issue.requiresGoogleCloudAuthentication
+                    ? "Google Cloud authentication is required."
+                    : "Could not connect to this host."
             }
         }
     }
@@ -339,11 +612,13 @@ final class AppModel: ObservableObject {
     }
 
     func selectSection(_ section: HostSection) {
+        selectedWorkspace = nil
         selectedSection = section
         operationNotice = nil
     }
 
     func beginNewBuilder() {
+        selectedWorkspace = nil
         selectedSection = .builders
         builderName = uniqueName("base", among: builders.map(\.name))
         builderImage = "ubuntu:24.04"
@@ -352,6 +627,7 @@ final class AppModel: ObservableObject {
     }
 
     func beginTemplate(from builder: Workspace? = nil) {
+        selectedWorkspace = nil
         selectedSection = .templates
         selectedBuilderID = builder?.id ?? selectedBuilderID ?? builders.first?.id
         templateName = uniqueName("development", among: templates.map(\.name))
@@ -360,6 +636,7 @@ final class AppModel: ObservableObject {
     }
 
     func beginWorkspace(from template: Template? = nil) {
+        selectedWorkspace = nil
         selectedSection = .workspaces
         selectedTemplateID = template?.id ?? selectedTemplateID ?? templates.first?.id
         workspaceName = uniqueName("workspace", among: managedWorkspaces.map(\.name))
@@ -601,7 +878,163 @@ final class AppModel: ObservableObject {
         hostInfo = snapshot.0
         workspaces = snapshot.1
         templates = snapshot.2
+        rememberWorkspaceSnapshot(snapshot.1, for: host)
         repairSelections()
+    }
+
+    private func ensureWorkspaceTerminal(host: SSHHost, workspace: Workspace) {
+        guard workspace.status == .running,
+              !workspaceTerminalSessions.contains(where: {
+                  $0.matches(hostID: host.id, workspaceID: workspace.id)
+              }) else { return }
+        let destination = WorkspaceDestination(hostID: host.id, workspaceID: workspace.id)
+        disconnectedWorkspaceIDs.remove(destination)
+        reconnectingWorkspaceIDs.remove(destination)
+        terminalConnectionIssues.removeValue(forKey: destination)
+        workspaceTerminalSessions.append(
+            TerminalSession(
+                host: host,
+                target: .workspace(id: workspace.id, name: workspace.name)
+            )
+        )
+    }
+
+    private func rememberWorkspaceSnapshot(_ snapshot: [Workspace], for host: SSHHost) {
+        let current = snapshot.filter { $0.kind == .workspace }
+        workspaceCache[host.id] = current
+        readyHostIDs.insert(host.id)
+
+        let currentIDs = Set(current.map(\.id))
+        workspaceTerminalSessions.removeAll { session in
+            guard session.host.id == host.id, let workspaceID = session.workspaceID else {
+                return false
+            }
+            guard currentIDs.contains(workspaceID) else { return true }
+            return current.first(where: { $0.id == workspaceID })?.status != .running
+        }
+
+        let runningDestinations = Set(current.filter { $0.status == .running }.map {
+            WorkspaceDestination(hostID: host.id, workspaceID: $0.id)
+        })
+        disconnectedWorkspaceIDs = Set(disconnectedWorkspaceIDs.filter {
+            $0.hostID != host.id || runningDestinations.contains($0)
+        })
+        reconnectingWorkspaceIDs = Set(reconnectingWorkspaceIDs.filter {
+            $0.hostID != host.id || runningDestinations.contains($0)
+        })
+        terminalConnectionIssues = terminalConnectionIssues.filter {
+            $0.key.hostID != host.id || runningDestinations.contains($0.key)
+        }
+        automaticReconnectAttempts = automaticReconnectAttempts.filter {
+            $0.key.hostID != host.id || runningDestinations.contains($0.key)
+        }
+        automaticReconnectPending = Set(automaticReconnectPending.filter {
+            $0.hostID != host.id || runningDestinations.contains($0)
+        })
+
+        guard let destination = selectedWorkspace, destination.hostID == host.id else { return }
+        guard let workspace = current.first(where: { $0.id == destination.workspaceID }) else {
+            selectedWorkspace = nil
+            return
+        }
+        if workspace.status == .running {
+            ensureWorkspaceTerminal(host: host, workspace: workspace)
+        }
+    }
+
+    private func reconnectTerminal(_ destination: WorkspaceDestination) {
+        guard let host = hosts.first(where: { $0.id == destination.hostID }),
+              let workspace = workspaceCache[destination.hostID]?.first(where: {
+                  $0.id == destination.workspaceID
+              }),
+              workspace.status == .running else { return }
+
+        guard terminalConnectionIssues[destination]?.requiresGoogleCloudAuthentication != true else {
+            reconnectingWorkspaceIDs.remove(destination)
+            return
+        }
+
+        workspaceTerminalSessions.removeAll {
+            $0.matches(hostID: destination.hostID, workspaceID: destination.workspaceID)
+        }
+        disconnectedWorkspaceIDs.remove(destination)
+        reconnectingWorkspaceIDs.insert(destination)
+        terminalConnectionIssues.removeValue(forKey: destination)
+
+        let replacement = TerminalSession(
+            host: host,
+            target: .workspace(id: workspace.id, name: workspace.name)
+        )
+        workspaceTerminalSessions.append(replacement)
+
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self,
+                  self.workspaceTerminalSessions.contains(where: { $0.id == replacement.id }),
+                  !self.disconnectedWorkspaceIDs.contains(destination) else { return }
+            self.reconnectingWorkspaceIDs.remove(destination)
+            self.automaticReconnectAttempts.removeValue(forKey: destination)
+            self.hostConnectionIssues.removeValue(forKey: destination.hostID)
+            self.readyHostIDs.insert(destination.hostID)
+        }
+    }
+
+    private func diagnoseWorkspaceTerminalDisconnect(
+        _ destination: WorkspaceDestination,
+        host: SSHHost
+    ) async {
+        do {
+            let client = SSHClient(host: host)
+            let _: HostInfo = try await client.call(
+                SkepMethod.hostInfo,
+                params: EmptyParameters()
+            )
+            guard disconnectedWorkspaceIDs.contains(destination) else { return }
+            terminalConnectionIssues.removeValue(forKey: destination)
+        } catch {
+            guard disconnectedWorkspaceIDs.contains(destination) else { return }
+            let issue = HostConnectionIssue.classify(
+                host: host,
+                diagnostic: error.localizedDescription
+            )
+            terminalConnectionIssues[destination] = issue
+            hostConnectionIssues[host.id] = issue
+            readyHostIDs.remove(host.id)
+            if issue.requiresGoogleCloudAuthentication {
+                automaticReconnectPending.remove(destination)
+                if selectedHostID == host.id {
+                    statusMessage = "Google Cloud authentication is required."
+                }
+            }
+        }
+    }
+
+    private func scheduleAutomaticReconnect(
+        _ destination: WorkspaceDestination,
+        immediate: Bool = false
+    ) {
+        guard disconnectedWorkspaceIDs.contains(destination),
+              !automaticReconnectPending.contains(destination),
+              terminalConnectionIssues[destination]?.requiresGoogleCloudAuthentication != true,
+              let automaticReconnectUntil,
+              Date() <= automaticReconnectUntil else { return }
+
+        let attempt = automaticReconnectAttempts[destination, default: 0]
+        let delays: [TimeInterval] = [0.5, 1.5, 3, 6]
+        guard attempt < delays.count else { return }
+        automaticReconnectAttempts[destination] = attempt + 1
+        automaticReconnectPending.insert(destination)
+        let delay = immediate ? 0.25 : delays[attempt]
+
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard let self else { return }
+            self.automaticReconnectPending.remove(destination)
+            guard self.disconnectedWorkspaceIDs.contains(destination),
+                  let automaticReconnectUntil = self.automaticReconnectUntil,
+                  Date() <= automaticReconnectUntil else { return }
+            self.reconnectTerminal(destination)
+        }
     }
 
     private func uniqueName(_ base: String, among names: [String]) -> String {
@@ -624,6 +1057,7 @@ final class AppModel: ObservableObject {
     private func resetSelectedHostState() {
         activeRefreshID = nil
         hostPreflight = nil
+        hostServiceUpdateRequired = false
         localRuntimeStatus = nil
         hostInfo = nil
         workspaces = []
@@ -669,12 +1103,15 @@ final class AppModel: ObservableObject {
 
         switch status.state {
         case .unsupported:
+            readyHostIDs.remove(host.id)
             statusMessage = "Local workspaces require Apple Silicon."
             return
         case .notInstalled:
+            readyHostIDs.remove(host.id)
             statusMessage = "Install the local Skep runtime to continue."
             return
         case .incomplete:
+            readyHostIDs.remove(host.id)
             statusMessage = "The local Skep installation is incomplete."
             return
         case .stopped:
@@ -688,6 +1125,7 @@ final class AppModel: ObservableObject {
         }
 
         guard status.state == .ready else {
+            readyHostIDs.remove(host.id)
             statusMessage = "The local Skep service could not be started."
             return
         }
@@ -701,6 +1139,7 @@ final class AppModel: ObservableObject {
         hostInfo = snapshot.0
         workspaces = snapshot.1
         templates = snapshot.2
+        rememberWorkspaceSnapshot(snapshot.1, for: host)
         if profileWasSeededForHost != host.id {
             draftProfile = snapshot.0.suggestedProfile
             profileWasSeededForHost = host.id

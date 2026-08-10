@@ -1,0 +1,68 @@
+import assert from "node:assert/strict";
+import { readFile, stat } from "node:fs/promises";
+import { resolve } from "node:path";
+
+const root = resolve(new URL("..", import.meta.url).pathname);
+const repository = resolve(root, "..");
+const read = (path) => readFile(resolve(root, "dist", path), "utf8");
+const version = (await readFile(resolve(repository, "VERSION"), "utf8")).trim();
+const build = (await readFile(resolve(repository, "BUILD_NUMBER"), "utf8")).trim();
+const archiveName = `Skep-${version}-${build}-macOS-arm64.zip`;
+const diskImageName = `Skep-${version}-${build}-macOS-arm64.dmg`;
+
+const home = await read("index.html");
+const privacy = await read("privacy/index.html");
+const appcast = await read("updates/appcast.xml");
+const release = JSON.parse(await read("release.json"));
+const vercel = JSON.parse(await readFile(resolve(root, "vercel.json"), "utf8"));
+const archive = await stat(resolve(root, "dist/downloads", archiveName));
+const latestArchive = await stat(resolve(root, "dist/downloads/Skep-latest-macOS-arm64.zip"));
+const diskImage = await stat(resolve(root, "dist/downloads", diskImageName));
+const latestDiskImage = await stat(resolve(root, "dist/downloads/Skep-latest-macOS-arm64.dmg"));
+
+for (const phrase of [
+  "Isolated compute that stays yours.",
+  "Google Cloud IAP",
+  "Automatic service updates",
+  "Developer ID signed",
+  "notarized by Apple",
+  "og:image:width",
+  "site.webmanifest",
+  "application/ld+json",
+  "Is Skep open source?"
+]) assert(home.includes(phrase), `Missing launch copy: ${phrase}`);
+
+assert(privacy.includes("does not currently use advertising trackers"));
+assert(privacy.includes('property="og:image"'));
+assert(privacy.includes('rel="canonical"'));
+assert(appcast.includes("sparkle:edSignature="), "Appcast archive is not signed");
+assert(appcast.includes(`https://skep-compute.vercel.app/downloads/${archiveName}`));
+assert.equal(release.version, version);
+assert.equal(release.build, build);
+assert.equal(release.installer, "dmg");
+assert.equal(release.channel, "private-beta");
+const downloadHeaders = vercel.headers.find((entry) => entry.source === "/downloads/(.*)")?.headers ?? [];
+assert(
+  downloadHeaders.some((entry) =>
+    entry.key === "Cache-Control" && entry.value === "public, max-age=0, must-revalidate"
+  ),
+  "Stable installers must be revalidated so a browser cannot reuse an older build"
+);
+assert(archive.size > 10_000_000, "Release archive is unexpectedly small");
+assert.equal(latestArchive.size, archive.size, "Stable download differs from the versioned archive");
+assert(diskImage.size > 10_000_000, "Disk image is unexpectedly small");
+assert.equal(latestDiskImage.size, diskImage.size, "Stable disk image differs from the versioned disk image");
+for (const asset of [
+  "og.png",
+  "favicon.svg",
+  "favicon.ico",
+  "favicon-16x16.png",
+  "favicon-32x32.png",
+  "apple-touch-icon.png",
+  "icon-192.png",
+  "icon-512.png",
+  "site.webmanifest"
+]) await stat(resolve(root, "dist", asset));
+assert(!home.includes("__SKEP_"), "Launch page contains a build placeholder");
+
+console.log("Skep launch site checks passed");

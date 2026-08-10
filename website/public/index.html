@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Skep — Isolated compute that stays yours</title>
+    <meta name="description" content="Build persistent microVM workspaces on your Apple Silicon Mac or a remote Linux host. One native app for local compute, SSH, and Google Cloud IAP.">
+    <meta name="application-name" content="Skep">
+    <meta name="apple-mobile-web-app-title" content="Skep">
+    <meta name="theme-color" content="#050505">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Skep">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:title" content="Skep — Isolated compute that stays yours">
+    <meta property="og:description" content="Persistent microVM workspaces, locally on Apple Silicon or remotely over SSH and Google Cloud IAP.">
+    <meta property="og:url" content="https://skep-compute.vercel.app">
+    <meta property="og:image" content="https://skep-compute.vercel.app/og.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Skep — Isolated compute that stays yours. Local, SSH, and Google Cloud IAP.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Skep — Isolated compute that stays yours">
+    <meta name="twitter:description" content="Persistent microVM workspaces, locally or on your own Linux hosts.">
+    <meta name="twitter:image" content="https://skep-compute.vercel.app/og.png">
+    <meta name="twitter:image:alt" content="Skep — Isolated compute that stays yours.">
+    <link rel="canonical" href="https://skep-compute.vercel.app">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
+    <link rel="icon" href="/favicon-16x16.png" sizes="16x16" type="image/png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="stylesheet" href="/styles.css">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Skep",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS 14 or later",
+        "softwareVersion": "0.1.0",
+        "url": "https://skep-compute.vercel.app",
+        "downloadUrl": "https://skep-compute.vercel.app/download",
+        "description": "Persistent isolated compute on your Apple Silicon Mac and your own Linux hosts.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Skep home">
+        <img class="brand-icon" src="/favicon.svg" alt="" width="30" height="30">
+        <span>SKEP</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#workflow">Workflow</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="header-cta" href="/download">Download beta <span aria-hidden="true">↘</span></a>
+    </header>
+
+    <main id="main">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="status-dot"></span> Private beta · macOS</p>
+          <h1>Isolated compute<br>that stays yours.</h1>
+          <p class="lede">Build a machine once. Publish a template. Open persistent microVM workspaces on your Mac or your own cloud host—without learning another cloud control plane.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="/download">Download for Mac</a>
+            <a class="button button-secondary" href="#workflow">See the workflow</a>
+          </div>
+          <p class="requirements">Apple Silicon · macOS 14+ · No account required</p>
+        </div>
+        <div class="hero-system" aria-label="Skep application preview">
+          <div class="window-bar">
+            <span class="window-title">Skep</span>
+            <span class="window-state">READY</span>
+          </div>
+          <div class="app-shell">
+            <aside class="app-sidebar">
+              <p class="ui-label">LOCAL</p>
+              <div class="host active"><span class="host-icon">▣</span><span>This Mac<small>APPLE SILICON</small></span></div>
+              <p class="ui-label remote-label">REMOTE HOSTS</p>
+              <div class="host"><span class="host-icon">◇</span><span>dev-gcp<small>GCP · IAP</small></span></div>
+              <div class="workspace-line"></div>
+              <p class="ui-label workspace-label">WORKSPACES 2</p>
+              <div class="workspace active"><span></span>agent-main <em>RUNNING</em></div>
+              <div class="workspace"><span></span>review-3085 <em>STOPPED</em></div>
+            </aside>
+            <div class="app-main">
+              <div class="terminal-head"><span>WORKSPACE / agent-main</span><span>● CONNECTED</span></div>
+              <div class="terminal-body">
+                <p><b>$</b> git status --short</p>
+                <p><i>M</i> src/agent/runtime.rs</p>
+                <p><b>$</b> docker compose up -d</p>
+                <p class="muted">[+] Running 4/4</p>
+                <p><b>$</b> <span class="cursor"></span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="proof-strip" aria-label="Product capabilities">
+        <span>LOCAL APPLE SILICON</span>
+        <span>REGULAR SSH</span>
+        <span>GOOGLE CLOUD IAP</span>
+        <span>DOCKER INSIDE</span>
+        <span>PERSISTENT DISKS</span>
+      </section>
+
+      <section class="statement section-rule">
+        <p class="eyebrow">THE PREMISE</p>
+        <h2>Your laptop should feel local.<br>Your compute does not have to be.</h2>
+        <p>Skep treats your Mac and your Linux VMs as one pool of isolated development capacity. The interface stays the same whether a workspace is running three feet away or behind Google Cloud IAP.</p>
+      </section>
+
+      <section id="workflow" class="workflow section-rule">
+        <div class="section-heading">
+          <p class="eyebrow">ONE REPEATABLE LOOP</p>
+          <h2>From clean image to working machine.</h2>
+        </div>
+        <ol class="steps">
+          <li>
+            <span class="step-number">01</span>
+            <h3>Build</h3>
+            <p>Start an editable microVM from an OCI image. Install your tools through a full terminal and keep the builder around.</p>
+          </li>
+          <li>
+            <span class="step-number">02</span>
+            <h3>Publish</h3>
+            <p>Capture a verified, immutable template. The source builder remains available when you need to change the baseline.</p>
+          </li>
+          <li>
+            <span class="step-number">03</span>
+            <h3>Launch</h3>
+            <p>Create isolated, persistent workspaces with dedicated filesystems and Docker data disks. Stop them without losing state.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section id="architecture" class="architecture section-rule">
+        <div class="section-heading">
+          <p class="eyebrow">ONE APP, TWO EXECUTION MODES</p>
+          <h2>Local when you want it.<br>Remote when you need it.</h2>
+        </div>
+        <div class="mode-grid">
+          <article class="mode mode-dark">
+            <p class="mode-index">A / LOCAL</p>
+            <h3>This Mac</h3>
+            <p>Run Linux microVMs through the native Apple Silicon Microsandbox runtime. No SSH, cloud account, or administrator install.</p>
+            <ul>
+              <li>Private Unix control socket</li>
+              <li>User-owned local service</li>
+              <li>Automatic helper alignment</li>
+            </ul>
+          </article>
+          <article class="mode">
+            <p class="mode-index">B / REMOTE</p>
+            <h3>Your Linux host</h3>
+            <p>Connect using credentials already configured on your Mac. Skep supports regular SSH and Google Cloud IAP tunnels.</p>
+            <ul>
+              <li>No daemon port exposed</li>
+              <li>Checksummed host payload</li>
+              <li>Automatic service updates</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="sessions section-rule">
+        <div>
+          <p class="eyebrow">WORKSPACES ARE THE NAVIGATION</p>
+          <h2>Switch machines like tabs.</h2>
+        </div>
+        <div class="sessions-copy">
+          <p>Each host expands into its workspaces in the sidebar. Open one and its terminal stays attached while you move through the rest of the app.</p>
+          <dl>
+            <div><dt>Sleep</dt><dd>Reconnect after your Mac wakes.</dd></div>
+            <div><dt>Network drop</dt><dd>Retry automatically, then offer a manual reconnect.</dd></div>
+            <div><dt>Stopped VM</dt><dd>Keep the disk. Resume when you need it.</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="security section-rule">
+        <div class="security-intro">
+          <p class="eyebrow">BOUNDARIES, NOT BRANDING</p>
+          <h2>Understand what runs where.</h2>
+          <p>Skep is intentionally explicit about the trust boundary. The Mac app orchestrates; the host service owns the privileged runtime; every workspace is a microVM.</p>
+        </div>
+        <div class="security-facts">
+          <div><span>01</span><p>Your private SSH keys and Google Cloud credentials stay on your Mac.</p></div>
+          <div><span>02</span><p>The remote service is reached through SSH and a host-local Unix socket—not a public API port.</p></div>
+          <div><span>03</span><p>Host binaries ship with the app, are checksum-verified, and update without deleting workspace state.</p></div>
+          <div><span>04</span><p>Docker runs inside each Linux workspace instead of sharing your Mac’s Docker daemon.</p></div>
+        </div>
+      </section>
+
+      <section class="beta section-rule">
+        <div>
+          <p class="eyebrow">PRIVATE BETA 0.1</p>
+          <h2>Useful now. Signed properly.</h2>
+        </div>
+        <div class="beta-grid">
+          <div><strong>LOCAL</strong><p>Apple Silicon Mac<br>macOS 14 or newer</p></div>
+          <div><strong>REMOTE</strong><p>Ubuntu 24.04 x86-64<br>systemd + KVM</p></div>
+          <div><strong>CONNECTION</strong><p>OpenSSH<br>Google Cloud IAP</p></div>
+          <div><strong>DISTRIBUTION</strong><p>Private source<br>Developer ID signed</p></div>
+        </div>
+        <div class="beta-warning"><span>SIGNED BETA</span><p>This build is Developer ID signed, notarized by Apple, and distributed through a signed Sparkle update feed. Skep remains a private-source beta while the product and compatibility surface mature.</p></div>
+      </section>
+
+      <section id="faq" class="faq section-rule">
+        <div class="section-heading">
+          <p class="eyebrow">QUESTIONS</p>
+          <h2>The short answers.</h2>
+        </div>
+        <div class="faq-list">
+          <details><summary>Is Skep open source?</summary><p>Not yet. The current beta is distributed as a binary while the product and release model settle. The underlying Microsandbox runtime is Apache-2.0 software.</p></details>
+          <details><summary>Does it replace Docker?</summary><p>No. Skep creates the isolated Linux machines. Docker runs normally inside each builder and workspace.</p></details>
+          <details><summary>Does Skep create cloud VMs?</summary><p>Not in this preview. Point it at a compatible Linux VM you already control. It can parse a complete <code>gcloud compute ssh … --tunnel-through-iap</code> command for you.</p></details>
+          <details><summary>What happens to my data when Skep updates?</summary><p>The Mac app replaces matching control binaries and restarts the service. Builders, templates, workspace disks, Docker data, and exports remain on the selected host.</p></details>
+          <details><summary>Why does the remote VM need KVM?</summary><p>Skep runs a microVM runtime inside that host. Cloud VMs therefore need nested virtualization enabled and must expose <code>/dev/kvm</code> to the guest.</p></details>
+        </div>
+      </section>
+
+      <section class="final-cta section-rule">
+        <p class="eyebrow">START WITH ONE MACHINE</p>
+        <h2>Make isolated workspaces feel ordinary.</h2>
+        <div class="hero-actions">
+          <a class="button button-primary inverse" href="/download">Download the private beta</a>
+          <a class="button button-secondary inverse" href="mailto:storozhenkomykyta@gmail.com?subject=Skep%20private%20beta">Send feedback</a>
+        </div>
+        <p>Version 0.1.0 · Apple Silicon · macOS 14+</p>
+      </section>
+    </main>
+
+    <footer>
+      <div class="brand"><img class="brand-icon" src="/favicon.svg" alt="" width="30" height="30"><span>SKEP</span></div>
+      <p>Isolated compute that stays yours.</p>
+      <div><a href="/privacy/">Privacy</a><a href="mailto:storozhenkomykyta@gmail.com">Contact</a></div>
+    </footer>
+  </body>
+</html>

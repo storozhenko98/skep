@@ -4,10 +4,16 @@
 <dict>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>Skep</string>
     <key>CFBundleExecutable</key>
     <string>Skep</string>
     <key>CFBundleIdentifier</key>
     <string>com.storozhenko.skep</string>
+    <key>CFBundleIconFile</key>
+    <string>Skep.icns</string>
+    <key>CFBundleIconName</key>
+    <string>Skep</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -20,9 +26,25 @@
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.developer-tools</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 Mykyta Storozhenko. All rights reserved.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://skep-compute.vercel.app/updates/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>Inm3rbXS0hUb/WJhCt69ZQnzZ5aJPutGOns9d9Hd4zg=</string>
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 </dict>
 </plist>

@@ -15,6 +15,8 @@ public struct HostPreflight: Equatable, Sendable {
     public let systemd: Bool
     public let skepctlInstalled: Bool
     public let skepdInstalled: Bool
+    public let skepctlSHA256: String?
+    public let skepdSHA256: String?
     public let daemonActive: Bool
     public let daemonSocket: Bool
     public let microsandboxInstalled: Bool
@@ -43,6 +45,12 @@ public struct HostPreflight: Equatable, Sendable {
             && passwordlessSudo
     }
 
+    public var supportsAutomaticUpdate: Bool {
+        architecture == "x86_64"
+            && systemd
+            && passwordlessSudo
+    }
+
     static func parse(_ data: Data) throws -> HostPreflight {
         let output = String(decoding: data, as: UTF8.self)
         var fields: [String: String] = [:]
@@ -66,6 +74,8 @@ public struct HostPreflight: Equatable, Sendable {
             systemd: flag("systemd"),
             skepctlInstalled: flag("skepctl"),
             skepdInstalled: flag("skepd"),
+            skepctlSHA256: fields["skepctl_sha256"].flatMap { $0.isEmpty ? nil : $0 },
+            skepdSHA256: fields["skepd_sha256"].flatMap { $0.isEmpty ? nil : $0 },
             daemonActive: flag("daemon_active"),
             daemonSocket: flag("daemon_socket"),
             microsandboxInstalled: flag("microsandbox"),
@@ -119,6 +129,23 @@ public struct HostLifecycleClient: Sendable {
         }.value
     }
 
+    public func update(payloadDirectory: URL) async throws {
+        let invocation = try host.noninteractiveCommandInvocation(Self.updateCommand)
+        try await Task.detached(priority: .userInitiated) {
+            let archive = try Self.makePayloadArchive(from: payloadDirectory)
+            _ = try Self.run(invocation: invocation, input: archive)
+        }.value
+    }
+
+    public func updateRequired(
+        preflight: HostPreflight,
+        payloadDirectory: URL
+    ) throws -> Bool {
+        let identity = try Self.payloadIdentity(from: payloadDirectory)
+        return preflight.skepctlSHA256 != identity.skepctl
+            || preflight.skepdSHA256 != identity.skepd
+    }
+
     public func remove(payloadDirectory: URL) async throws {
         let invocation = try host.noninteractiveCommandInvocation(Self.removeCommand)
         try await Task.detached(priority: .userInitiated) {
@@ -147,6 +174,23 @@ public struct HostLifecycleClient: Sendable {
       os_version=${VERSION_ID:-unknown}
     fi
     check() { if "$@" >/dev/null 2>&1; then printf '1'; else printf '0'; fi; }
+    checksum() {
+      if [ -f "$1" ] && command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+      fi
+    }
+    daemon_socket=0
+    microsandbox=0
+    if [ -x /usr/local/bin/skepctl ]; then
+      bridge_ping=$(printf '%s\n' '{"id":"skep-preflight-ping","version":1,"method":"ping","params":{}}' | sudo -n /usr/local/bin/skepctl bridge 2>/dev/null || true)
+      if printf '%s' "$bridge_ping" | grep -q '"ok":true'; then
+        daemon_socket=1
+      fi
+      bridge_info=$(printf '%s\n' '{"id":"skep-preflight-info","version":1,"method":"host.info","params":{}}' | sudo -n /usr/local/bin/skepctl bridge 2>/dev/null || true)
+      if printf '%s' "$bridge_info" | grep -q '"microsandbox":{"installed":true'; then
+        microsandbox=1
+      fi
+    fi
     printf 'skep_preflight=1\n'
     printf 'hostname=%s\n' "$(hostname 2>/dev/null || printf unknown)"
     printf 'os_id=%s\n' "$os_id"
@@ -155,9 +199,11 @@ public struct HostLifecycleClient: Sendable {
     printf 'systemd=%s\n' "$(check command -v systemctl)"
     printf 'skepctl=%s\n' "$(check test -x /usr/local/bin/skepctl)"
     printf 'skepd=%s\n' "$(check test -x /usr/local/bin/skepd)"
+    printf 'skepctl_sha256=%s\n' "$(checksum /usr/local/bin/skepctl)"
+    printf 'skepd_sha256=%s\n' "$(checksum /usr/local/bin/skepd)"
     printf 'daemon_active=%s\n' "$(check systemctl is-active --quiet skepd.service)"
-    printf 'daemon_socket=%s\n' "$(check test -S /run/skep/skepd.sock)"
-    printf 'microsandbox=%s\n' "$(check test -x /var/lib/skep/microsandbox/bin/msb)"
+    printf 'daemon_socket=%s\n' "$daemon_socket"
+    printf 'microsandbox=%s\n' "$microsandbox"
     printf 'cpu_virtualization=%s\n' "$(check grep -Eq '(^| )(vmx|svm)( |$)' /proc/cpuinfo)"
     printf 'kvm_device=%s\n' "$(check test -c /dev/kvm)"
     printf 'passwordless_sudo=%s\n' "$(check sudo -n true)"
@@ -177,6 +223,18 @@ public struct HostLifecycleClient: Sendable {
       sudo -n apt-get install -y curl ca-certificates
     fi
     sudo -n "$install_root/install-microsandbox.sh"
+    sudo -n env SKEP_OPERATOR="$operator_name" "$install_root/install.sh" "$install_root"
+    """#
+
+    static let updateCommand = #"""
+    set -eu
+    umask 077
+    install_root=$(mktemp -d /tmp/skep-update.XXXXXX)
+    cleanup() { rm -rf "$install_root"; }
+    trap cleanup EXIT HUP INT TERM
+    tar -xzf - -C "$install_root"
+    (cd "$install_root" && sha256sum -c SHA256SUMS)
+    operator_name=$(id -un)
     sudo -n env SKEP_OPERATOR="$operator_name" "$install_root/install.sh" "$install_root"
     """#
 
@@ -212,6 +270,28 @@ public struct HostLifecycleClient: Sendable {
         } catch {
             throw HostLifecycleError.payloadArchive(error.localizedDescription)
         }
+    }
+
+    private struct PayloadIdentity {
+        let skepctl: String
+        let skepd: String
+    }
+
+    private static func payloadIdentity(from directory: URL) throws -> PayloadIdentity {
+        let manifestURL = directory.appendingPathComponent("SHA256SUMS")
+        guard let contents = try? String(contentsOf: manifestURL, encoding: .utf8) else {
+            throw HostLifecycleError.missingPayload("Could not read \(manifestURL.path).")
+        }
+        var checksums: [String: String] = [:]
+        for line in contents.split(whereSeparator: \Character.isNewline) {
+            let fields = line.split(whereSeparator: \Character.isWhitespace)
+            guard fields.count >= 2 else { continue }
+            checksums[String(fields[1]).trimmingCharacters(in: CharacterSet(charactersIn: "*"))] = String(fields[0])
+        }
+        guard let skepctl = checksums["skepctl"], let skepd = checksums["skepd"] else {
+            throw HostLifecycleError.missingPayload("SHA256SUMS does not identify skepctl and skepd.")
+        }
+        return PayloadIdentity(skepctl: skepctl, skepd: skepd)
     }
 
     private static func run(invocation: ProcessInvocation, input: Data = Data()) throws -> Data {

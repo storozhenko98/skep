@@ -122,6 +122,13 @@ and tmux, and creates a small Docker startup helper inside the builder.
 ## Current durability boundary
 
 The workspace and its disk survive terminal disconnects, app exits, and host
-daemon restarts. A new terminal currently opens a new `msb ssh` shell; exact
-shell-process or coding-agent multiplexing is the next layer, informed by
-Beehive but not claimed by this MVP.
+daemon restarts. During one Skep app run, embedded Ghostty views stay mounted
+while hidden so their PTYs survive host and workspace switching. Skep detects a
+closed terminal child process independently from the microVM state, offers a
+manual reconnect, and retries for a bounded window after macOS wakes or network
+connectivity returns. Reconnection replaces only the local SSH/IAP transport
+and opens a new `msb ssh` shell. Exact shell-process or coding-agent
+reattachment is the next layer, informed by Beehive but not claimed by this MVP.
+
+The proposed sidebar hierarchy, embedded workspace mode, and layered terminal
+reattachment model are recorded in [workspace-sessions.md](workspace-sessions.md).

@@ -5,19 +5,22 @@ import QuartzCore
 final class GhosttyTerminalNSView: NSView {
     nonisolated(unsafe) private(set) var surface: ghostty_surface_t?
     private let command: String
+    private let onProcessExit: () -> Void
     private var trackingArea: NSTrackingArea?
+    private var isShuttingDown = false
 
     var terminalTitle = ""
     var workingDirectory: String?
     var rendererHealthy = true
-    var processExited = false
+    private(set) var processExited = false
     var cellSize: CGSize = .zero
 
     override var acceptsFirstResponder: Bool { true }
     override var isFlipped: Bool { true }
 
-    init(runtime: GhosttyRuntime, command: String) {
+    init(runtime: GhosttyRuntime, command: String, onProcessExit: @escaping () -> Void = {}) {
         self.command = command
+        self.onProcessExit = onProcessExit
         super.init(frame: NSRect(x: 0, y: 0, width: 900, height: 560))
         wantsLayer = true
         layerContentsRedrawPolicy = .onSetNeedsDisplay
@@ -65,9 +68,16 @@ final class GhosttyTerminalNSView: NSView {
     }
 
     func shutdown() {
+        isShuttingDown = true
         guard let surface else { return }
         ghostty_surface_free(surface)
         self.surface = nil
+    }
+
+    func markProcessExited() {
+        guard !isShuttingDown, !processExited else { return }
+        processExited = true
+        onProcessExit()
     }
 
     override func layout() {

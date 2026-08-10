@@ -1,3 +1,5 @@
+import AppKit
+import Network
 import SkepCore
 import SkepTerminal
 import SwiftUI
@@ -6,11 +8,12 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var model: AppModel
     @AppStorage("skep.appearance") private var appearance = SkepAppearance.dark.rawValue
+    @StateObject private var connectivity = NetworkReachability()
 
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-                .frame(width: 238)
+                .frame(width: 260)
             Rectangle()
                 .fill(SkepUI.rule(colorScheme))
                 .frame(width: 1)
@@ -75,6 +78,14 @@ struct ContentView: View {
                 Text("This removes skepctl, skepd, the system service, and its sudo rule. Workspaces, templates, exports, and Microsandbox under /var/lib/skep are preserved.")
             }
         }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)) { _ in
+            model.beginAutomaticTerminalReconnectWindow()
+        }
+        .onChange(of: connectivity.isOnline) { previous, current in
+            if previous == false, current == true {
+                model.beginAutomaticTerminalReconnectWindow()
+            }
+        }
     }
 
     private var sidebar: some View {
@@ -93,60 +104,38 @@ struct ContentView: View {
             .padding(.top, 22)
             .padding(.bottom, 24)
 
-            HStack {
-                Text("LOCAL")
-                    .font(SkepUI.eyebrow)
-                    .tracking(1.1)
-                    .foregroundStyle(SkepUI.muted(colorScheme))
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 8)
-
-            HostSidebarRow(
-                host: .local,
-                selected: model.selectedHostID == SSHHost.localID,
-                connected: model.selectedHostID == SSHHost.localID && model.selectedHostIsReady,
-                busy: model.selectedHostID == SSHHost.localID && model.isBusy
-            ) {
-                model.selectHost(SSHHost.localID)
-            }
-            .padding(.horizontal, 8)
-            .padding(.bottom, 18)
-
-            HStack {
-                Text("REMOTE HOSTS")
-                    .font(SkepUI.eyebrow)
-                    .tracking(1.1)
-                    .foregroundStyle(SkepUI.muted(colorScheme))
-                Spacer()
-                Button { model.showingAddHost = true } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .semibold))
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
-                        .overlay(Rectangle().stroke(SkepUI.strongRule(colorScheme), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .help("Add host")
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 8)
-
             ScrollView {
-                LazyVStack(spacing: 3) {
-                    ForEach(model.remoteHosts) { host in
-                        HostSidebarRow(
-                            host: host,
-                            selected: model.selectedHostID == host.id,
-                            connected: model.selectedHostID == host.id && model.selectedHostIsReady,
-                            busy: model.selectedHostID == host.id && model.isBusy
-                        ) {
-                            model.selectHost(host.id)
+                LazyVStack(spacing: 0) {
+                    sidebarSectionHeader("LOCAL")
+                    HostSidebarGroup(model: model, host: .local)
+                        .padding(.bottom, 18)
+
+                    HStack {
+                        Text("REMOTE HOSTS")
+                            .font(SkepUI.eyebrow)
+                            .tracking(1.1)
+                            .foregroundStyle(SkepUI.muted(colorScheme))
+                        Spacer()
+                        Button { model.showingAddHost = true } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .semibold))
+                                .frame(width: 26, height: 26)
+                                .contentShape(Rectangle())
+                                .overlay(Rectangle().stroke(SkepUI.strongRule(colorScheme), lineWidth: 1))
                         }
+                        .buttonStyle(.plain)
+                        .help("Add host")
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, 8)
+
+                    ForEach(model.remoteHosts) { host in
+                        HostSidebarGroup(model: model, host: host)
+                            .padding(.bottom, 4)
                     }
                 }
                 .padding(.horizontal, 8)
+                .padding(.bottom, 12)
             }
 
             VStack(spacing: 13) {
@@ -184,12 +173,153 @@ struct ContentView: View {
         .background(SkepUI.rail(colorScheme))
     }
 
+    private func sidebarSectionHeader(_ title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(SkepUI.eyebrow)
+                .tracking(1.1)
+                .foregroundStyle(SkepUI.muted(colorScheme))
+            Spacer()
+        }
+        .padding(.horizontal, 6)
+        .padding(.bottom, 8)
+    }
+
     @ViewBuilder
     private var detail: some View {
-        if let host = model.selectedHost {
-            HostDetailView(model: model, host: host)
+        ZStack {
+            if let host = model.selectedHost {
+                HostDetailView(model: model, host: host)
+                    .opacity(model.selectedWorkspace == nil ? 1 : 0)
+                    .allowsHitTesting(model.selectedWorkspace == nil)
+                    .accessibilityHidden(model.selectedWorkspace != nil)
+            } else {
+                EmptyHostView { model.showingAddHost = true }
+            }
+
+            ForEach(model.workspaceTerminalSessions) { session in
+                if let workspaceID = session.workspaceID,
+                   let workspace = model.cachedWorkspaces(for: session.host.id).first(where: {
+                       $0.id == workspaceID
+                   }) {
+                    let active = model.isWorkspaceSessionActive(session)
+                    WorkspaceTerminalSurface(
+                        model: model,
+                        host: session.host,
+                        workspace: workspace,
+                        session: session,
+                        active: active
+                    )
+                    .opacity(active ? 1 : 0)
+                    .allowsHitTesting(active)
+                    .accessibilityHidden(!active)
+                }
+            }
+
+            if let destination = model.selectedWorkspace,
+               let host = model.hosts.first(where: { $0.id == destination.hostID }),
+               let workspace = model.selectedWorkspaceItem,
+               !model.workspaceTerminalSessions.contains(where: {
+                   $0.matches(hostID: destination.hostID, workspaceID: destination.workspaceID)
+               }) {
+                WorkspaceStatusSurface(model: model, host: host, workspace: workspace)
+            }
+        }
+    }
+}
+
+private struct HostSidebarGroup: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject var model: AppModel
+    let host: SSHHost
+
+    private var selected: Bool {
+        model.selectedHostID == host.id && model.selectedWorkspace == nil
+    }
+
+    private var expanded: Bool {
+        model.isHostExpanded(host.id)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HostSidebarRow(
+                host: host,
+                selected: selected,
+                connected: model.isHostReady(host.id),
+                busy: model.selectedHostID == host.id && model.isBusy,
+                expanded: expanded,
+                toggleExpansion: { model.toggleHostExpansion(host.id) },
+                action: { model.selectHost(host.id) }
+            )
+
+            if expanded {
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        Text("WORKSPACES")
+                            .font(SkepUI.eyebrow)
+                            .tracking(0.8)
+                        Text("\(model.cachedWorkspaces(for: host.id).count)")
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(SkepUI.muted(colorScheme))
+                        Spacer()
+                        if model.selectedHostID == host.id && model.isHostReady(host.id) {
+                            Button {
+                                model.beginWorkspace()
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .frame(width: 24, height: 22)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(model.templates.isEmpty)
+                            .help(model.templates.isEmpty ? "Publish a template first" : "New workspace")
+                        }
+                    }
+                    .foregroundStyle(SkepUI.muted(colorScheme))
+                    .padding(.leading, 42)
+                    .padding(.trailing, 8)
+                    .frame(height: 32)
+
+                    workspaceRows
+                }
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(SkepUI.rule(colorScheme))
+                        .frame(width: 1)
+                        .padding(.leading, 20)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var workspaceRows: some View {
+        let cached = model.cachedWorkspaces(for: host.id)
+        if !cached.isEmpty {
+            ForEach(cached) { workspace in
+                WorkspaceSidebarRow(
+                    workspace: workspace,
+                    selected: model.isWorkspaceSelected(hostID: host.id, workspaceID: workspace.id),
+                    terminalState: model.workspaceTerminalConnectionState(
+                        hostID: host.id,
+                        workspaceID: workspace.id
+                    ),
+                    connectionIssue: model.workspaceConnectionIssue(
+                        hostID: host.id,
+                        workspaceID: workspace.id
+                    )
+                ) {
+                    model.selectWorkspace(hostID: host.id, workspace: workspace)
+                }
+            }
+        } else if model.selectedHostID == host.id && model.isBusy && !model.hasLoadedWorkspaces(for: host.id) {
+            SidebarWorkspaceMessage(text: "LOADING", loading: true)
+        } else if model.hasLoadedWorkspaces(for: host.id) {
+            SidebarWorkspaceMessage(text: "NO WORKSPACES")
         } else {
-            EmptyHostView { model.showingAddHost = true }
+            SidebarWorkspaceMessage(text: "SELECT HOST TO LOAD")
         }
     }
 }
@@ -200,11 +330,22 @@ private struct HostSidebarRow: View {
     let selected: Bool
     let connected: Bool
     let busy: Bool
+    let expanded: Bool
+    let toggleExpansion: () -> Void
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
+        HStack(spacing: 0) {
+            Button(action: toggleExpansion) {
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 8, weight: .bold))
+                    .frame(width: 28, height: 52)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: action) {
+                HStack(spacing: 8) {
                 Image(systemName: iconName)
                     .font(.system(size: 12, weight: .medium))
                     .frame(width: 20)
@@ -226,15 +367,16 @@ private struct HostSidebarRow: View {
                         .frame(width: 7, height: 7)
                         .overlay(Rectangle().stroke(currentInk.opacity(0.7), lineWidth: 1))
                 }
+                }
+                .padding(.trailing, 10)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 10)
-            .frame(height: 52)
-            .contentShape(Rectangle())
-            .foregroundStyle(currentInk)
-            .background(selected ? SkepUI.ink(colorScheme) : .clear)
-            .overlay(Rectangle().stroke(selected ? SkepUI.ink(colorScheme) : .clear, lineWidth: 1))
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .foregroundStyle(currentInk)
+        .background(selected ? SkepUI.ink(colorScheme) : .clear)
+        .overlay(Rectangle().stroke(selected ? SkepUI.ink(colorScheme) : .clear, lineWidth: 1))
     }
 
     private var currentInk: Color {
@@ -254,6 +396,385 @@ private struct HostSidebarRow: View {
         case .local: "APPLE SILICON"
         case .ssh: host.hostname
         case .gcloudIAP: host.gcloudInstance
+        }
+    }
+}
+
+private struct WorkspaceSidebarRow: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let workspace: Workspace
+    let selected: Bool
+    let terminalState: TerminalConnectionState?
+    let connectionIssue: HostConnectionIssue?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Rectangle()
+                    .fill(workspace.status == .running ? currentInk : .clear)
+                    .frame(width: 8, height: 8)
+                    .overlay(Rectangle().stroke(currentInk, lineWidth: 1))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(workspace.name)
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .lineLimit(1)
+                    Text(statusText)
+                        .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
+                        .opacity(0.62)
+                }
+                Spacer(minLength: 4)
+                Rectangle()
+                    .fill(terminalIndicatorFilled ? currentInk : .clear)
+                    .frame(width: 6, height: 6)
+                    .overlay(Rectangle().stroke(currentInk.opacity(0.65), lineWidth: 1))
+            }
+            .padding(.leading, 40)
+            .padding(.trailing, 11)
+            .frame(maxWidth: .infinity, minHeight: 43)
+            .contentShape(Rectangle())
+            .foregroundStyle(currentInk)
+            .background(selected ? SkepUI.ink(colorScheme) : .clear)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var currentInk: Color {
+        selected ? SkepUI.inverseInk(colorScheme) : SkepUI.ink(colorScheme)
+    }
+
+    private var terminalIndicatorFilled: Bool {
+        guard workspace.status == .running, connectionIssue == nil else { return false }
+        return terminalState == nil || terminalState == .connected
+    }
+
+    private var statusText: String {
+        guard workspace.status == .running else { return workspace.status.rawValue.uppercased() }
+        if connectionIssue?.requiresGoogleCloudAuthentication == true { return "REAUTH REQUIRED" }
+        return switch terminalState {
+        case .reconnecting: "RECONNECTING"
+        case .disconnected: "DISCONNECTED"
+        case .connected, .none: workspace.status.rawValue.uppercased()
+        }
+    }
+}
+
+private struct SidebarWorkspaceMessage: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let text: String
+    var loading = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if loading { ProgressView().controlSize(.mini) }
+            Text(text)
+                .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
+                .tracking(0.4)
+            Spacer()
+        }
+        .foregroundStyle(SkepUI.muted(colorScheme))
+        .padding(.leading, 42)
+        .frame(height: 34)
+    }
+}
+
+private struct WorkspaceTerminalSurface: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject var model: AppModel
+    let host: SSHHost
+    let workspace: Workspace
+    let session: TerminalSession
+    let active: Bool
+
+    private var connectionState: TerminalConnectionState {
+        model.terminalConnectionState(for: session)
+    }
+
+    private var connectionIssue: HostConnectionIssue? {
+        model.terminalConnectionIssue(for: session)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            workspaceHeader
+            Rectangle().fill(SkepUI.rule(colorScheme)).frame(height: 1)
+            ZStack(alignment: .top) {
+                TerminalView(
+                    session: session,
+                    isActive: active && connectionState != .disconnected,
+                    onProcessExit: {
+                        Task { @MainActor in
+                            model.workspaceTerminalDidExit(sessionID: session.id)
+                        }
+                    }
+                )
+                .background(Color.black)
+
+                if connectionState == .disconnected {
+                    connectionLostNotice
+                        .padding(.top, 18)
+                        .padding(.horizontal, 24)
+                }
+            }
+        }
+        .background(SkepUI.canvas(colorScheme))
+    }
+
+    private var connectionLostNotice: some View {
+        HStack(spacing: 16) {
+            Rectangle()
+                .fill(SkepUI.ink(colorScheme))
+                .frame(width: 7, height: 7)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(connectionIssue?.label ?? "CONNECTION LOST")
+                    .font(SkepUI.eyebrow)
+                    .tracking(1)
+                Text(connectionIssue?.workspaceMessage ?? "The workspace is still running. Reconnect opens a new terminal shell.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(SkepUI.muted(colorScheme))
+            }
+            Spacer()
+            if connectionIssue?.requiresGoogleCloudAuthentication == true {
+                Button(model.isReauthenticatingGoogleCloud(hostID: host.id) ? "Opening browser…" : "Reauthenticate") {
+                    model.reauthenticateGoogleCloud(hostID: host.id)
+                }
+                .buttonStyle(PrimaryButtonStyle(minWidth: 142))
+                .disabled(model.isReauthenticatingGoogleCloud(hostID: host.id))
+            } else {
+                Button(connectionState == .reconnecting ? "Reconnecting…" : "Retry") {
+                    model.reconnectWorkspaceTerminal(hostID: host.id, workspaceID: workspace.id)
+                }
+                .buttonStyle(SecondaryButtonStyle(minWidth: 102))
+                .disabled(connectionState == .reconnecting)
+            }
+        }
+        .padding(.horizontal, 18)
+        .frame(maxWidth: 660, minHeight: 64)
+        .background(SkepUI.canvas(colorScheme))
+        .overlay(Rectangle().stroke(SkepUI.strongRule(colorScheme), lineWidth: 1))
+    }
+
+    private var workspaceHeader: some View {
+        HStack(alignment: .center, spacing: 18) {
+            VStack(alignment: .leading, spacing: 7) {
+                Text("WORKSPACE")
+                    .font(SkepUI.eyebrow)
+                    .tracking(1.2)
+                    .foregroundStyle(SkepUI.muted(colorScheme))
+                HStack(spacing: 10) {
+                    Text(workspace.name)
+                        .font(.system(size: 27, weight: .semibold))
+                        .lineLimit(1)
+                    StatusBadge(text: connectionBadge, filled: connectionState == .connected)
+                }
+                Text("\(host.name)  /  \(profileSummary(workspace.resources))")
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(SkepUI.muted(colorScheme))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 24)
+            Button("Host overview") { model.showSelectedHostManagement() }
+                .buttonStyle(SecondaryButtonStyle(minWidth: 132))
+            if connectionState != .connected {
+                if connectionIssue?.requiresGoogleCloudAuthentication == true {
+                    Button(model.isReauthenticatingGoogleCloud(hostID: host.id) ? "Opening browser…" : "Reauthenticate") {
+                        model.reauthenticateGoogleCloud(hostID: host.id)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(minWidth: 142))
+                    .disabled(model.isReauthenticatingGoogleCloud(hostID: host.id))
+                } else {
+                    Button(connectionState == .reconnecting ? "Reconnecting…" : "Reconnect") {
+                        model.reconnectWorkspaceTerminal(hostID: host.id, workspaceID: workspace.id)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(minWidth: 132))
+                    .disabled(connectionState == .reconnecting)
+                }
+
+                Button(model.activeResourceOperation?.targets(workspace.id) == true ? "Stopping…" : "Stop") {
+                    model.setRunning(workspace, running: false)
+                }
+                .buttonStyle(SecondaryButtonStyle(minWidth: 108))
+                .disabled(model.resourceOperationInProgress)
+            } else {
+                Button(model.activeResourceOperation?.targets(workspace.id) == true ? "Stopping…" : "Stop") {
+                    model.setRunning(workspace, running: false)
+                }
+                .buttonStyle(PrimaryButtonStyle(minWidth: 108))
+                .disabled(model.resourceOperationInProgress)
+            }
+        }
+        .padding(.horizontal, 32)
+        .frame(height: 94)
+    }
+
+    private var connectionBadge: String {
+        switch connectionState {
+        case .connected: workspace.status.rawValue.capitalized
+        case .reconnecting: "Reconnecting"
+        case .disconnected: connectionIssue?.badge ?? "Connection lost"
+        }
+    }
+}
+
+private final class NetworkReachability: ObservableObject, @unchecked Sendable {
+    @Published private(set) var isOnline: Bool?
+
+    private let monitor = NWPathMonitor()
+    private let queue = DispatchQueue(label: "dev.skep.network-reachability")
+
+    init() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            let online = path.status == .satisfied
+            DispatchQueue.main.async {
+                self?.isOnline = online
+            }
+        }
+        monitor.start(queue: queue)
+    }
+
+    deinit {
+        monitor.cancel()
+    }
+}
+
+private struct WorkspaceStatusSurface: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject var model: AppModel
+    let host: SSHHost
+    let workspace: Workspace
+
+    private var targeted: Bool {
+        model.activeResourceOperation?.targets(workspace.id) == true
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            Rectangle().fill(SkepUI.rule(colorScheme)).frame(height: 1)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if targeted {
+                        ResourceOperationNotice(
+                            title: model.activeResourceOperation?.title ?? "Updating workspace",
+                            message: "Applying the requested machine state change. The terminal will open when the workspace is ready.",
+                            working: true
+                        )
+                    } else if workspace.status == .error {
+                        CapabilityNotice(
+                            label: "WORKSPACE ERROR",
+                            title: "This workspace needs attention",
+                            message: workspace.lastError ?? "The workspace runtime reported an unknown error."
+                        )
+                    }
+
+                    VStack(spacing: 0) {
+                        HStack(alignment: .top, spacing: 16) {
+                            MachineStatus(status: workspace.status)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(workspaceStateTitle)
+                                    .font(.system(size: 20, weight: .semibold))
+                                Text(workspaceStateMessage)
+                                    .font(.system(size: 12.5))
+                                    .foregroundStyle(SkepUI.muted(colorScheme))
+                            }
+                            Spacer()
+                            if workspace.status == .running {
+                                Button("Open terminal") { model.openSelectedWorkspaceTerminal() }
+                                    .buttonStyle(PrimaryButtonStyle(minWidth: 150))
+                            } else if workspace.status != .creating {
+                                Button(targeted ? "Starting…" : "Start workspace") {
+                                    model.setRunning(workspace, running: true)
+                                }
+                                .buttonStyle(PrimaryButtonStyle(minWidth: 150))
+                                .disabled(model.resourceOperationInProgress)
+                            }
+                        }
+                        .padding(22)
+                        Rectangle().fill(SkepUI.rule(colorScheme)).frame(height: 1)
+                        HStack(spacing: 0) {
+                            workspaceFact("HOST", host.name)
+                            workspaceFact("RESOURCES", profileSummary(workspace.resources))
+                            workspaceFact("AUTOSTART", workspace.autostart ? "ON" : "OFF")
+                            workspaceFact("DOCKER DISK", formatGiB(UInt64(workspace.resources.dockerVolumeMib)))
+                        }
+                    }
+                    .background(SkepUI.faint(colorScheme))
+                    .overlay(Rectangle().stroke(SkepUI.strongRule(colorScheme), lineWidth: 1))
+
+                    Text("Closing Skep or switching to another host does not stop this workspace. Machine lifecycle is always explicit.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(SkepUI.muted(colorScheme))
+                }
+                .padding(32)
+                .frame(maxWidth: 1120)
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .background(SkepUI.canvas(colorScheme))
+    }
+
+    private var workspaceStateTitle: String {
+        switch workspace.status {
+        case .creating: "Workspace is being created"
+        case .running: "Workspace is running"
+        case .stopped: "Workspace is stopped"
+        case .error: "Workspace is unavailable"
+        }
+    }
+
+    private var workspaceStateMessage: String {
+        switch workspace.status {
+        case .creating:
+            "Skep is preparing the isolated machine and its dedicated Docker disk."
+        case .running:
+            "The machine is ready. Open its terminal to attach a client session."
+        case .stopped:
+            "Its filesystem and Docker data are preserved. Start it to reconnect to the terminal."
+        case .error:
+            "The machine state is preserved. Review the runtime error, then try starting it again."
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 18) {
+            VStack(alignment: .leading, spacing: 7) {
+                Text("WORKSPACE")
+                    .font(SkepUI.eyebrow)
+                    .tracking(1.2)
+                    .foregroundStyle(SkepUI.muted(colorScheme))
+                HStack(spacing: 10) {
+                    Text(workspace.name)
+                        .font(.system(size: 27, weight: .semibold))
+                        .lineLimit(1)
+                    StatusBadge(text: workspace.status.rawValue.capitalized)
+                }
+                Text("\(host.name)  /  \(workspace.runtimeName)")
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(SkepUI.muted(colorScheme))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 24)
+            Button("Host overview") { model.showSelectedHostManagement() }
+                .buttonStyle(SecondaryButtonStyle(minWidth: 132))
+        }
+        .padding(.horizontal, 32)
+        .frame(height: 94)
+    }
+
+    private func workspaceFact(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(label)
+                .font(SkepUI.eyebrow)
+                .tracking(0.7)
+                .foregroundStyle(SkepUI.muted(colorScheme))
+            Text(value)
+                .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                .lineLimit(2)
+        }
+        .padding(17)
+        .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
+        .overlay(alignment: .trailing) {
+            Rectangle().fill(SkepUI.rule(colorScheme)).frame(width: 1)
         }
     }
 }
@@ -293,7 +814,7 @@ private struct HostDetailView: View {
                 .padding(.horizontal, 32)
                 .padding(.vertical, 22)
 
-            if model.hostInfo != nil {
+            if model.hostInfo != nil && model.hostConnectionIssue(for: host.id) == nil {
                 HostSectionNavigation(model: model)
                     .padding(.horizontal, 32)
                     .padding(.bottom, 16)
@@ -317,51 +838,60 @@ private struct HostDetailView: View {
     private func hostPage(info: HostInfo) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 18) {
-                if let error = model.errorMessage {
+                if !host.isLocal, let issue = model.hostConnectionIssue(for: host.id) {
+                    HostConnectionRecoveryPanel(model: model, host: host, issue: issue)
                     CapabilityNotice(
-                        label: host.isLocal ? "LOCAL RUNTIME ERROR" : "SERVICE ERROR",
-                        title: host.isLocal ? "This Mac could not be refreshed" : "The host could not be refreshed",
-                        message: error
+                        label: "LAST KNOWN STATE",
+                        title: "Host state is unavailable while disconnected",
+                        message: "Skep last saw the host service and workspace data before this connection failed. The remote machines may still be running, but their current state cannot be confirmed until the connection is restored."
                     )
-                }
+                } else {
+                    if let error = model.errorMessage {
+                        CapabilityNotice(
+                            label: host.isLocal ? "LOCAL RUNTIME ERROR" : "SERVICE ERROR",
+                            title: host.isLocal ? "This Mac could not be refreshed" : "The host could not be refreshed",
+                            message: error
+                        )
+                    }
 
-                if !host.isLocal && !info.virtualization.kvmUsable {
-                    CapabilityNotice(
-                        label: "HOST REQUIREMENT",
-                        title: "Nested virtualization is unavailable",
-                        message: friendlyKVMMessage(info.virtualization.reason),
-                        footnote: "Builders remain disabled until this host exposes /dev/kvm. On Google Cloud, choose a compatible machine family and enable nested virtualization."
-                    )
-                }
+                    if !host.isLocal && !info.virtualization.kvmUsable {
+                        CapabilityNotice(
+                            label: "HOST REQUIREMENT",
+                            title: "Nested virtualization is unavailable",
+                            message: friendlyKVMMessage(info.virtualization.reason),
+                            footnote: "Builders remain disabled until this host exposes /dev/kvm. On Google Cloud, choose a compatible machine family and enable nested virtualization."
+                        )
+                    }
 
-                if let operation = model.activeResourceOperation {
-                    ResourceOperationNotice(
-                        title: operation.title,
-                        message: operationMessage(operation),
-                        working: true
-                    )
-                } else if let notice = model.operationNotice {
-                    ResourceOperationNotice(
-                        title: notice.title,
-                        message: notice.message,
-                        working: false,
-                        error: notice.kind == .error
-                    )
-                }
+                    if let operation = model.activeResourceOperation {
+                        ResourceOperationNotice(
+                            title: operation.title,
+                            message: operationMessage(operation),
+                            working: true
+                        )
+                    } else if let notice = model.operationNotice {
+                        ResourceOperationNotice(
+                            title: notice.title,
+                            message: notice.message,
+                            working: false,
+                            error: notice.kind == .error
+                        )
+                    }
 
-                switch model.selectedSection {
-                case .overview:
-                    HostOverviewPage(model: model, info: info, local: host.isLocal)
-                case .builders:
-                    BuildersManagementPage(
-                        model: model,
-                        info: info,
-                        enabled: info.virtualization.kvmUsable && info.microsandbox.installed
-                    )
-                case .templates:
-                    TemplatesManagementPage(model: model)
-                case .workspaces:
-                    WorkspacesManagementPage(model: model)
+                    switch model.selectedSection {
+                    case .overview:
+                        HostOverviewPage(model: model, info: info, local: host.isLocal)
+                    case .builders:
+                        BuildersManagementPage(
+                            model: model,
+                            info: info,
+                            enabled: info.virtualization.kvmUsable && info.microsandbox.installed
+                        )
+                    case .templates:
+                        TemplatesManagementPage(model: model)
+                    case .workspaces:
+                        WorkspacesManagementPage(model: model)
+                    }
                 }
             }
             .padding(.horizontal, 32)
@@ -375,7 +905,9 @@ private struct HostDetailView: View {
     private var setupPage: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 18) {
-                if let error = model.errorMessage {
+                if !host.isLocal, let issue = model.hostConnectionIssue(for: host.id) {
+                    HostConnectionRecoveryPanel(model: model, host: host, issue: issue)
+                } else if let error = model.errorMessage {
                     CapabilityNotice(
                         label: host.isLocal ? "LOCAL RUNTIME ERROR" : (model.hostPreflight == nil ? "CONNECTION ERROR" : "SERVICE ERROR"),
                         title: host.isLocal ? "This Mac is not ready" : (model.hostPreflight == nil ? "Could not reach this host" : "The Skep host service could not respond"),
@@ -385,8 +917,13 @@ private struct HostDetailView: View {
 
                 if host.isLocal, let status = model.localRuntimeStatus {
                     LocalRuntimePanel(model: model, status: status)
-                } else if let preflight = model.hostPreflight {
-                    HostServicePanel(model: model, preflight: preflight)
+                } else if model.hostConnectionIssue(for: host.id) == nil,
+                          let preflight = model.hostPreflight {
+                    HostServicePanel(
+                        model: model,
+                        preflight: preflight,
+                        updateRequired: model.hostServiceUpdateRequired
+                    )
                     if !preflight.kvmDevice {
                         CapabilityNotice(
                             label: "HOST REQUIREMENT",
@@ -452,6 +989,10 @@ private struct HostDetailView: View {
                         .font(.system(size: 29, weight: .semibold))
                     if model.isBusy {
                         StatusBadge(text: model.activityLabel ?? "Working")
+                    } else if let issue = model.hostConnectionIssue(for: host.id) {
+                        StatusBadge(text: issue.badge)
+                    } else if model.hostServiceUpdateRequired {
+                        StatusBadge(text: "Update required")
                     } else if model.selectedHostIsReady {
                         StatusBadge(text: "Ready", filled: true)
                     } else if host.isLocal, let status = model.localRuntimeStatus {
@@ -472,10 +1013,26 @@ private struct HostDetailView: View {
             .buttonStyle(SecondaryButtonStyle(minWidth: 142))
             .disabled(model.isBusy)
 
-            Button { model.openHostTerminal() } label: {
-                Label(host.isLocal ? "Mac terminal" : "Host terminal", systemImage: "terminal")
+            if !host.isLocal,
+               model.hostConnectionIssue(for: host.id)?.requiresGoogleCloudAuthentication == true {
+                Button {
+                    model.reauthenticateGoogleCloud(hostID: host.id)
+                } label: {
+                    Label(
+                        model.isReauthenticatingGoogleCloud(hostID: host.id)
+                            ? "Opening browser…"
+                            : "Reauthenticate",
+                        systemImage: "person.badge.key"
+                    )
+                }
+                .buttonStyle(PrimaryButtonStyle(minWidth: 158))
+                .disabled(model.isReauthenticatingGoogleCloud(hostID: host.id))
+            } else {
+                Button { model.openHostTerminal() } label: {
+                    Label(host.isLocal ? "Mac terminal" : "Host terminal", systemImage: "terminal")
+                }
+                .buttonStyle(PrimaryButtonStyle(minWidth: 142))
             }
-            .buttonStyle(PrimaryButtonStyle(minWidth: 142))
         }
     }
 
@@ -519,7 +1076,131 @@ private struct HostDetailView: View {
         case .notInstalled: "Setup required"
         case .incomplete: "Incomplete"
         case .stopped: "Service stopped"
-        case .ready: "SSH connected"
+        case .ready: "Service ready"
+        }
+    }
+}
+
+private struct HostConnectionRecoveryPanel: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject var model: AppModel
+    let host: SSHHost
+    let issue: HostConnectionIssue
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 18) {
+                Rectangle()
+                    .fill(SkepUI.ink(colorScheme))
+                    .frame(width: 3)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(issue.label)
+                        .font(SkepUI.eyebrow)
+                        .tracking(1)
+                    Text(issue.title)
+                        .font(.system(size: 17, weight: .semibold))
+                    Text(issue.hostMessage)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(SkepUI.muted(colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 24)
+                controls
+            }
+
+            DisclosureGroup("Technical details") {
+                Text(issue.diagnostic)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(SkepUI.muted(colorScheme))
+                    .textSelection(.enabled)
+                    .padding(.top, 8)
+            }
+            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+        }
+        .padding(18)
+        .background(SkepUI.faint(colorScheme))
+        .overlay(Rectangle().stroke(SkepUI.strongRule(colorScheme), lineWidth: 1))
+    }
+
+    private var controls: some View {
+        HStack(spacing: 10) {
+            Button("Retry connection") { model.refreshSelectedHost() }
+                .buttonStyle(SecondaryButtonStyle(minWidth: 132))
+                .disabled(model.isBusy || model.isReauthenticatingGoogleCloud(hostID: host.id))
+
+            if issue.requiresGoogleCloudAuthentication {
+                Button(model.isReauthenticatingGoogleCloud(hostID: host.id) ? "Opening browser…" : "Reauthenticate") {
+                    model.reauthenticateGoogleCloud(hostID: host.id)
+                }
+                .buttonStyle(PrimaryButtonStyle(minWidth: 142))
+                .disabled(model.isBusy || model.isReauthenticatingGoogleCloud(hostID: host.id))
+            }
+        }
+    }
+}
+
+private extension HostConnectionIssue {
+    var badge: String {
+        switch kind {
+        case .googleCloudAuthentication: "Reauth required"
+        case .googleCloudCLIUnavailable: "gcloud missing"
+        case .permissionDenied: "Access denied"
+        case .networkUnavailable: "Network offline"
+        case .hostUnavailable: "Disconnected"
+        case .transportFailed: "Connection error"
+        }
+    }
+
+    var label: String {
+        switch kind {
+        case .googleCloudAuthentication: "GOOGLE CLOUD AUTHENTICATION"
+        case .googleCloudCLIUnavailable: "GOOGLE CLOUD CLI"
+        case .permissionDenied: "ACCESS ERROR"
+        case .networkUnavailable: "NETWORK ERROR"
+        case .hostUnavailable, .transportFailed: "CONNECTION ERROR"
+        }
+    }
+
+    var title: String {
+        switch kind {
+        case .googleCloudAuthentication: "Your Google Cloud session expired"
+        case .googleCloudCLIUnavailable: "Google Cloud CLI is unavailable"
+        case .permissionDenied: "This account cannot reach the host"
+        case .networkUnavailable: "The network connection is unavailable"
+        case .hostUnavailable: "The remote host disconnected"
+        case .transportFailed: "Skep could not open the remote connection"
+        }
+    }
+
+    var hostMessage: String {
+        switch kind {
+        case .googleCloudAuthentication:
+            "The saved host configuration and Skep installation are unchanged, but Skep cannot inspect them until gcloud has fresh credentials. Reauthenticate in your browser, then Skep will retry the IAP tunnel automatically."
+        case .googleCloudCLIUnavailable:
+            "Install the Google Cloud CLI on this Mac, then retry the connection. Skep uses your existing gcloud installation and never stores its credentials."
+        case .permissionDenied:
+            "The connection reached Google Cloud or SSH, but the current account does not have permission to access this host. Verify the active account, IAP role, OS Login role, and project."
+        case .networkUnavailable:
+            "Skep could not reach the remote endpoint. Restore network access, then retry; no workspace state was changed."
+        case .hostUnavailable:
+            "The remote endpoint closed or refused the connection. Confirm the VM is running, then retry."
+        case .transportFailed:
+            "The SSH or IAP transport exited before Skep could inspect the host. Review the technical details, then retry the connection."
+        }
+    }
+
+    var workspaceMessage: String {
+        switch kind {
+        case .googleCloudAuthentication:
+            "The workspace may still be running, but its IAP tunnel closed because your Google Cloud session expired. Reauthenticate to open a new terminal."
+        case .permissionDenied:
+            "The workspace may still be running, but the current account no longer has access to its host."
+        case .networkUnavailable:
+            "The workspace may still be running. Restore network access, then retry the terminal connection."
+        case .googleCloudCLIUnavailable:
+            "The workspace may still be running, but this Mac cannot find the Google Cloud CLI required for its IAP tunnel."
+        case .hostUnavailable, .transportFailed:
+            "The workspace may still be running. Retry to open a new terminal shell when the host is reachable."
         }
     }
 }
@@ -573,6 +1254,7 @@ private struct HostLoadingPanel: View {
         switch activity {
         case "Checking this Mac": "Inspecting this Mac"
         case "Updating local service": "Updating the local Skep service"
+        case "Updating host service": "Updating the remote Skep service"
         case "Starting local service": "Starting the local Skep service"
         case "Loading this Mac": "Loading local workspace state"
         case "Loading host": "Loading host state"
@@ -588,6 +1270,8 @@ private struct HostLoadingPanel: View {
             "Checking the Apple Silicon runtime, local Skep helpers, and private control socket."
         case "Updating local service":
             "Replacing the installed skepctl and skepd helpers with the versions bundled in this app while preserving all builders, templates, and workspaces."
+        case "Updating host service":
+            "Uploading the matching skepctl and skepd binaries, verifying their checksums, and restarting the host service without touching builders, templates, or workspaces."
         case "Starting local service":
             "Starting the user-owned Skep service and reconnecting to its private Unix socket."
         case "Loading this Mac":
@@ -756,6 +1440,7 @@ private struct HostServicePanel: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var model: AppModel
     let preflight: HostPreflight
+    let updateRequired: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -799,7 +1484,13 @@ private struct HostServicePanel: View {
     @ViewBuilder
     private var controls: some View {
         HStack(spacing: 10) {
-            if preflight.serviceState != .ready {
+            if updateRequired {
+                Button("Update Skep") {
+                    model.showingInstallHostServiceConfirmation = true
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(!preflight.supportsAutomaticUpdate || model.isBusy)
+            } else if preflight.serviceState != .ready {
                 Button(preflight.serviceState == .notInstalled ? "Install Skep" : "Repair Skep") {
                     model.showingInstallHostServiceConfirmation = true
                 }
@@ -839,7 +1530,8 @@ private struct HostServicePanel: View {
     }
 
     private var title: String {
-        switch preflight.serviceState {
+        if updateRequired { return "Update the Skep host service" }
+        return switch preflight.serviceState {
         case .notInstalled: "Install Skep to manage this host"
         case .incomplete: "The Skep installation is incomplete"
         case .stopped: "The Skep service is not running"
@@ -848,7 +1540,10 @@ private struct HostServicePanel: View {
     }
 
     private var message: String {
-        switch preflight.serviceState {
+        if updateRequired {
+            return "This Mac app carries newer skepctl and skepd binaries. Update the host before managing its builders, templates, or workspaces. Host data is preserved."
+        }
+        return switch preflight.serviceState {
         case .notInstalled:
             "SSH is working, but this fresh VM does not have skepctl or skepd. Install the host service before creating builders or workspaces."
         case .incomplete:
@@ -861,7 +1556,10 @@ private struct HostServicePanel: View {
     }
 
     private var requirementMessage: String? {
-        guard preflight.serviceState != .ready else { return nil }
+        guard preflight.serviceState != .ready || updateRequired else { return nil }
+        if updateRequired && !preflight.supportsAutomaticUpdate {
+            return "Automatic updates require x86-64, systemd, and non-interactive sudo for this SSH user. Open the host terminal to restore administrator access."
+        }
         if preflight.operatingSystem != "ubuntu" || preflight.operatingSystemVersion != "24.04" {
             return "Automatic installation currently requires Ubuntu 24.04. This host reports \(preflight.operatingSystem) \(preflight.operatingSystemVersion)."
         }
@@ -1205,10 +1903,12 @@ private struct BuildersManagementPage: View {
                 title: "Builders",
                 subtitle: "Persistent base-image microVMs. Each builder is independent; customize it in Terminal, then capture it as a template."
             ) {
-                Button(model.showingBuilderCreator ? "Close form" : "New builder") {
-                    model.showingBuilderCreator ? (model.showingBuilderCreator = false) : model.beginNewBuilder()
+                if !model.builders.isEmpty {
+                    Button(model.showingBuilderCreator ? "Close form" : "New builder") {
+                        model.showingBuilderCreator ? (model.showingBuilderCreator = false) : model.beginNewBuilder()
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
                 }
-                .buttonStyle(SecondaryButtonStyle())
             }
 
             if model.builders.isEmpty || model.showingBuilderCreator {
@@ -1346,14 +2046,15 @@ private struct TemplatesManagementPage: View {
                 title: "Templates",
                 subtitle: "Verified, immutable snapshots. Templates do not run and consume no CPU or memory until you launch a workspace."
             ) {
-                Button(model.showingTemplateCreator ? "Close form" : "New template") {
-                    model.showingTemplateCreator ? (model.showingTemplateCreator = false) : model.beginTemplate()
+                if !model.templates.isEmpty && !model.builders.isEmpty {
+                    Button(model.showingTemplateCreator ? "Close form" : "New template") {
+                        model.showingTemplateCreator ? (model.showingTemplateCreator = false) : model.beginTemplate()
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
                 }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(model.builders.isEmpty)
             }
 
-            if model.templates.isEmpty || model.showingTemplateCreator {
+            if !model.builders.isEmpty && (model.templates.isEmpty || model.showingTemplateCreator) {
                 templateForm
             }
 
@@ -1467,14 +2168,15 @@ private struct WorkspacesManagementPage: View {
                 title: "Workspaces",
                 subtitle: "Persistent microVMs cloned from templates. Every workspace has its own filesystem, state, and dedicated Docker data disk."
             ) {
-                Button(model.showingWorkspaceCreator ? "Close form" : "New workspace") {
-                    model.showingWorkspaceCreator ? (model.showingWorkspaceCreator = false) : model.beginWorkspace()
+                if !model.managedWorkspaces.isEmpty && !model.templates.isEmpty {
+                    Button(model.showingWorkspaceCreator ? "Close form" : "New workspace") {
+                        model.showingWorkspaceCreator ? (model.showingWorkspaceCreator = false) : model.beginWorkspace()
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
                 }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(model.templates.isEmpty)
             }
 
-            if model.managedWorkspaces.isEmpty || model.showingWorkspaceCreator {
+            if !model.templates.isEmpty && (model.managedWorkspaces.isEmpty || model.showingWorkspaceCreator) {
                 workspaceForm
             }
 

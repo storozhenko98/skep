@@ -117,7 +117,7 @@ final class GhosttyRuntime: @unchecked Sendable {
             case GHOSTTY_ACTION_RING_BELL:
                 NSSound.beep()
             case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
-                view.processExited = true
+                view.markProcessExited()
             default:
                 break
             }
@@ -211,7 +211,7 @@ final class GhosttyRuntime: @unchecked Sendable {
         DispatchQueue.main.async {
             guard let pointer = UnsafeMutableRawPointer(bitPattern: address) else { return }
             let view = Unmanaged<GhosttyTerminalNSView>.fromOpaque(pointer).takeUnretainedValue()
-            view.processExited = true
+            view.markProcessExited()
         }
     }
 }

@@ -6,6 +6,9 @@ Microsandbox's native Apple Silicon virtualization; remote hosts connect through
 the user's existing OpenSSH or Google Cloud IAP setup. Both routes use the same
 small Rust control service and [Microsandbox](https://github.com/superradcompany/microsandbox).
 
+**Private beta:** [product site](https://skep-compute.vercel.app) ·
+[download the current Apple Silicon build](https://skep-compute.vercel.app/download)
+
 > **MVP status:** implemented and locally packaged. The native local transport,
 > SSH transport, daemon protocol, host audit, template/workspace lifecycle,
 > reboot reconciliation, and embedded Ghostty terminal are working. A real
@@ -83,7 +86,7 @@ Requirements:
 
 Build the pinned native Ghostty framework, compile the local helpers,
 cross-compile the Linux host installer payload, test the Swift packages, and
-package an ad-hoc-signed application:
+package a local ad-hoc-signed application:
 
 ```sh
 ./scripts/build-ghostty-framework.sh
@@ -93,8 +96,24 @@ open artifacts/Skep.app
 ```
 
 The generated Ghostty XCFramework, Swift build products, and `artifacts/` are
-intentionally ignored by Git. The current package is native arm64 and is not
-notarized.
+intentionally ignored by Git. The package is currently native arm64. The
+production download is Developer ID signed and notarized; running
+`package-macos.sh` without a signing identity intentionally creates only a
+local ad-hoc build.
+
+To build the complete private-beta release, including the signed Sparkle feed
+and drag-to-Applications DMG:
+
+```sh
+./scripts/package-release.sh
+```
+
+The app checks the production appcast automatically. A packaged client also
+compares the bundled `skepctl` and `skepd` checksums with every ready remote
+host and updates the service over its existing SSH/IAP transport when the host
+supports systemd and non-interactive sudo. See
+[docs/distribution.md](docs/distribution.md) for versioning, deployment,
+Developer ID, notarization, and update-key procedures.
 
 To exercise RPC and a real rendered SSH terminal during tests:
 
@@ -218,8 +237,9 @@ Still to do after the local end-to-end run:
 - template import, live resize, metrics, port forwarding, and secret injection;
 - a Skep-maintained Microsandbox fork/distribution once an upstream patch is
   actually required;
-- universal binaries, Developer ID signing, notarization, updates, and release
-  automation;
+- universal binaries, a stable release channel, and unattended CI release
+  publication (Developer ID signing and notarization currently run from the
+  release Mac's Keychain);
 - AWS support and non-macOS clients.
 
 ## Repository layout
@@ -232,6 +252,7 @@ crates/skepctl/           Unix-socket client, SSH bridge, workspace shell
 deploy/                   systemd unit and host installers
 docs/                     architecture, VM setup, and research
 scripts/                  Ghostty build and macOS packaging
+website/                  static launch and private-beta distribution site
 ```
 
 ## Privacy and licensing

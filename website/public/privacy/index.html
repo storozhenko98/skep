@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy — Skep</title>
+    <meta name="description" content="Skep private beta privacy information.">
+    <meta name="theme-color" content="#050505">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Skep">
+    <meta property="og:title" content="Privacy — Skep">
+    <meta property="og:description" content="How the Skep private beta handles application, connection, website, and update data.">
+    <meta property="og:url" content="https://skep-compute.vercel.app/privacy">
+    <meta property="og:image" content="https://skep-compute.vercel.app/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://skep-compute.vercel.app/og.png">
+    <link rel="canonical" href="https://skep-compute.vercel.app/privacy">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><img class="brand-icon" src="/favicon.svg" alt="" width="30" height="30"><span>SKEP</span></a>
+      <span></span>
+      <a class="header-cta" href="/">Back home <span aria-hidden="true">↖</span></a>
+    </header>
+    <main class="legal">
+      <p class="eyebrow">PRIVACY / PRIVATE BETA</p>
+      <h1>Skep keeps orchestration local.</h1>
+      <div class="legal-copy">
+        <h2>Application data</h2>
+        <p>Skep stores host connection metadata and application preferences on your Mac. It does not store SSH private keys, Google Cloud credentials, or host passwords.</p>
+        <h2>Network access</h2>
+        <p>Remote connections use OpenSSH or the Google Cloud CLI already configured on your Mac. Host control traffic travels through those connections to a host-local Unix socket. Local workspaces use a private Unix socket on your Mac.</p>
+        <h2>Website</h2>
+        <p>This launch site does not currently use advertising trackers, analytics cookies, or account registration. Vercel may process standard request metadata to operate the hosting service.</p>
+        <h2>Updates</h2>
+        <p>The Mac app checks a public Sparkle update feed hosted with this site. That request can include ordinary network metadata such as an IP address and user agent. Anonymous system profiling is disabled.</p>
+        <h2>Contact</h2>
+        <p>Questions can be sent to <a href="mailto:storozhenkomykyta@gmail.com">storozhenkomykyta@gmail.com</a>.</p>
+        <p class="legal-date">Effective August 8, 2026.</p>
+      </div>
+    </main>
+  </body>
+</html>

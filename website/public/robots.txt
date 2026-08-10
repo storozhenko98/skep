@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://skep-compute.vercel.app/sitemap.xml

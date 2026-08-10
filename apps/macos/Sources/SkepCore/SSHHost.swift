@@ -108,7 +108,7 @@ public struct SSHHost: Codable, Identifiable, Equatable, Sendable {
                 "--tunnel-through-iap",
                 "--command", "/usr/bin/sudo -n /usr/local/bin/skepctl bridge",
             ]
-            var invocation = gcloudInvocation(arguments)
+            var invocation = GCloudCLI.invocation(arguments)
             if !username.isEmpty {
                 invocation.arguments.append("--ssh-flag=-l\(username)")
             }
@@ -150,7 +150,7 @@ public struct SSHHost: Codable, Identifiable, Equatable, Sendable {
                 "--tunnel-through-iap",
                 "--command", remoteCommand,
             ]
-            var invocation = gcloudInvocation(arguments)
+            var invocation = GCloudCLI.invocation(arguments)
             if !username.isEmpty {
                 invocation.arguments.append("--ssh-flag=-l\(username)")
             }
@@ -172,6 +172,9 @@ public struct SSHHost: Codable, Identifiable, Equatable, Sendable {
                 throw SkepClientError.invalidHost("Enter an SSH hostname or IP address.")
             }
             var arguments = ["-p", String(port), "-o", "ServerAliveInterval=15"]
+            if !remoteCommand.isEmpty {
+                arguments.append("-tt")
+            }
             if !identityFile.isEmpty {
                 arguments.append(contentsOf: ["-i", NSString(string: identityFile).expandingTildeInPath])
             }
@@ -188,11 +191,12 @@ public struct SSHHost: Codable, Identifiable, Equatable, Sendable {
                 "--zone", gcloudZone,
                 "--tunnel-through-iap",
             ]
-            var invocation = gcloudInvocation(arguments)
+            var invocation = GCloudCLI.invocation(arguments)
             if !username.isEmpty {
                 invocation.arguments.append("--ssh-flag=-l\(username)")
             }
             if !remoteCommand.isEmpty {
+                invocation.arguments.append("--ssh-flag=-tt")
                 invocation.arguments.append(contentsOf: ["--command", shellJoin(remoteCommand)])
             }
             return invocation
@@ -226,21 +230,66 @@ public struct ProcessInvocation: Sendable, Equatable {
     }
 }
 
-private func gcloudInvocation(_ arguments: [String]) -> ProcessInvocation {
-    let fileManager = FileManager.default
-    let home = fileManager.homeDirectoryForCurrentUser.path
-    var candidates = [
-        "/opt/homebrew/bin/gcloud",
-        "/usr/local/bin/gcloud",
-        "\(home)/google-cloud-sdk/bin/gcloud",
-    ]
-    if let path = ProcessInfo.processInfo.environment["PATH"] {
-        candidates.append(contentsOf: path.split(separator: ":").map { "\($0)/gcloud" })
+public enum GCloudCLI {
+    public static func invocation(_ arguments: [String]) -> ProcessInvocation {
+        let fileManager = FileManager.default
+        let home = fileManager.homeDirectoryForCurrentUser.path
+        var candidates = [
+            "/opt/homebrew/bin/gcloud",
+            "/usr/local/bin/gcloud",
+            "\(home)/google-cloud-sdk/bin/gcloud",
+        ]
+        if let path = ProcessInfo.processInfo.environment["PATH"] {
+            candidates.append(contentsOf: path.split(separator: ":").map { "\($0)/gcloud" })
+        }
+        if let executable = candidates.first(where: fileManager.isExecutableFile(atPath:)) {
+            return ProcessInvocation(executable: executable, arguments: arguments)
+        }
+        return ProcessInvocation(executable: "/usr/bin/env", arguments: ["gcloud"] + arguments)
     }
-    if let executable = candidates.first(where: fileManager.isExecutableFile(atPath:)) {
-        return ProcessInvocation(executable: executable, arguments: arguments)
+
+    public static func authenticate() async throws {
+        let command = authenticationInvocation()
+        try await Task.detached(priority: .userInitiated) {
+            try run(command)
+        }.value
     }
-    return ProcessInvocation(executable: "/usr/bin/env", arguments: ["gcloud"] + arguments)
+
+    public static func authenticationInvocation() -> ProcessInvocation {
+        invocation(["auth", "login", "--quiet", "--launch-browser"])
+    }
+
+    private static func run(_ invocation: ProcessInvocation) throws {
+        let process = Process()
+        let input = Pipe()
+        let output = Pipe()
+        let errorOutput = Pipe()
+        process.executableURL = URL(fileURLWithPath: invocation.executable)
+        process.arguments = invocation.arguments
+        process.standardInput = input
+        process.standardOutput = output
+        process.standardError = errorOutput
+        do {
+            try process.run()
+        } catch {
+            throw SkepClientError.launchFailed(
+                "Could not start Google Cloud authentication: \(error.localizedDescription)"
+            )
+        }
+        try? input.fileHandleForWriting.close()
+        process.waitUntilExit()
+        _ = output.fileHandleForReading.readDataToEndOfFile()
+        let diagnostic = String(
+            decoding: errorOutput.fileHandleForReading.readDataToEndOfFile(),
+            as: UTF8.self
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard process.terminationStatus == 0 else {
+            throw SkepClientError.transportFailed(
+                status: process.terminationStatus,
+                message: diagnostic.isEmpty ? "Google Cloud authentication did not complete." : diagnostic
+            )
+        }
+    }
 }
 
 private func shellJoin(_ arguments: [String]) -> String {

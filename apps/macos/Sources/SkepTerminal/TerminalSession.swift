@@ -24,6 +24,19 @@ public struct TerminalSession: Identifiable, Equatable, Sendable {
         }
     }
 
+    public var workspaceID: String? {
+        guard case let .workspace(id, _) = target else { return nil }
+        return id
+    }
+
+    public func matches(hostID: UUID, workspaceID: String) -> Bool {
+        host.id == hostID && self.workspaceID == workspaceID
+    }
+
+    public func restarted() -> TerminalSession {
+        TerminalSession(host: host, target: target)
+    }
+
     public func invocation() throws -> ProcessInvocation {
         switch target {
         case .host:

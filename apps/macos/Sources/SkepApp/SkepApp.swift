@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct SkepApp: App {
     @StateObject private var model = AppModel()
+    @StateObject private var updates = AppUpdateController()
     @AppStorage("skep.appearance") private var appearance = SkepAppearance.dark.rawValue
 
     var body: some Scene {
@@ -16,9 +17,17 @@ struct SkepApp: App {
                 .tint(.primary)
         }
         .windowToolbarStyle(.unifiedCompact)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    updates.checkForUpdates()
+                }
+                .keyboardShortcut("u", modifiers: [.command, .shift])
+            }
+        }
 
         Settings {
-            SettingsView()
+            SettingsView(updates: updates)
         }
     }
 }
@@ -26,6 +35,7 @@ struct SkepApp: App {
 private struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("skep.appearance") private var appearance = SkepAppearance.dark.rawValue
+    @ObservedObject var updates: AppUpdateController
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -39,6 +49,20 @@ private struct SettingsView: View {
                     .frame(maxWidth: 260)
             }
             Divider()
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Updates")
+                        .font(.headline)
+                    Text("Skep checks its signed release feed automatically and installs updates in the background when macOS permits it.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Check now") {
+                    updates.checkForUpdates()
+                }
+            }
+            Divider()
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "lock.shield")
                 Text("Local workspaces use a private Unix socket. Remote hosts use your existing OpenSSH and Google Cloud CLI credentials. Passwords and private keys are never stored by Skep.")
@@ -47,7 +71,7 @@ private struct SettingsView: View {
             }
         }
         .padding(24)
-        .frame(width: 500, height: 230)
+        .frame(width: 520, height: 320)
         .background(SkepUI.canvas(colorScheme))
         .preferredColorScheme(
             SkepAppearance(rawValue: appearance)?.colorScheme ?? .dark

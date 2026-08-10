@@ -1,0 +1,21 @@
+{
+  "name": "Skep",
+  "short_name": "Skep",
+  "description": "Persistent isolated compute on your Mac and your own Linux hosts.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#050505",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
