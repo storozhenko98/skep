@@ -58,8 +58,11 @@ h1 { max-width: 690px; margin-bottom: 28px; font-size: clamp(56px, 6.2vw, 98px);
 .workspace.active span { background: var(--white); }
 .workspace em { display: block; margin-top: 4px; color: #707070; font: 600 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; font-style: normal; }
 .app-main { display: flex; flex-direction: column; min-width: 0; }
+.terminal-grid { min-height: 0; flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.terminal-pane { min-width: 0; display: flex; flex-direction: column; }
+.terminal-pane + .terminal-pane { border-left: 1px solid #333; }
 .terminal-head { height: 47px; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; color: #a8a8a8; border-bottom: 1px solid #333; font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
-.terminal-body { flex: 1; padding: 30px; color: #ececec; background: #17191d; font: 500 14px/1.72 ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; }
+.terminal-body { flex: 1; padding: 30px 20px; color: #ececec; background: #17191d; font: 500 12px/1.72 ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; }
 .terminal-body p { margin-bottom: 4px; white-space: nowrap; }
 .terminal-body b { color: #777; }
 .terminal-body i { color: var(--white); font-style: normal; }
@@ -71,9 +74,28 @@ h1 { max-width: 690px; margin-bottom: 28px; font-size: clamp(56px, 6.2vw, 98px);
 .proof-strip span { white-space: nowrap; }
 .proof-strip span::before { content: "■"; margin-right: 9px; }
 .section-rule { border-bottom: 1px solid var(--black); }
-.statement { padding: clamp(90px, 12vw, 180px) 7vw; }
-.statement h2, .section-heading h2, .sessions h2, .security h2, .beta h2, .final-cta h2 { margin-bottom: 24px; font-size: clamp(42px, 5.6vw, 84px); line-height: .98; letter-spacing: -.055em; font-weight: 650; }
-.statement > p:last-child { max-width: 740px; margin: 46px 0 0 auto; font-size: clamp(18px, 1.7vw, 24px); line-height: 1.45; }
+.use-cases { padding: 110px 6vw; }
+.use-case-intro { display: grid; grid-template-columns: .6fr 1.4fr; align-items: start; gap: 18px 40px; }
+.use-case-intro .eyebrow { grid-row: 1 / span 2; padding-top: 9px; }
+.use-case-intro h2, .section-heading h2, .sessions h2, .security h2, .beta h2, .final-cta h2 { margin-bottom: 24px; font-size: clamp(42px, 5.6vw, 84px); line-height: .98; letter-spacing: -.055em; font-weight: 650; }
+.use-case-intro h2 { margin-bottom: 10px; }
+.use-case-intro > p:last-child { grid-column: 2; max-width: 760px; margin: 0; color: var(--gray); font-size: clamp(17px, 1.6vw, 22px); line-height: 1.48; }
+.agent-boundary { margin-top: 76px; color: var(--white); background: var(--black); border: 1px solid var(--black); }
+.boundary-head { min-height: 52px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; color: #9a9a9a; border-bottom: 1px solid #444; font: 650 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; }
+.agent-columns { display: grid; grid-template-columns: repeat(2, 1fr); }
+.agent-columns article { min-width: 0; padding: 30px; }
+.agent-columns article + article { border-left: 1px solid #444; }
+.agent-index { color: #8b8b8b; font: 650 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
+.agent-columns h3 { margin: 62px 0 32px; font-size: clamp(31px, 3.5vw, 54px); line-height: 1; letter-spacing: -.05em; }
+.agent-columns ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid #444; }
+.agent-columns li { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid #333; font: 600 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+.agent-columns li strong { color: var(--white); font-weight: 650; }
+.agent-columns li span { color: #858585; }
+.use-case-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-left: 1px solid var(--black); }
+.use-case-grid article { min-height: 290px; padding: 24px; border-right: 1px solid var(--black); border-bottom: 1px solid var(--black); display: flex; flex-direction: column; }
+.use-case-grid article > span { font: 650 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.use-case-grid h3 { margin: auto 0 14px; font-size: 27px; line-height: 1.04; letter-spacing: -.04em; }
+.use-case-grid p { margin: 0; color: var(--gray); font-size: 14px; line-height: 1.52; }
 .workflow, .architecture, .faq { padding: 110px 6vw; }
 .section-heading { display: grid; grid-template-columns: .6fr 1.4fr; align-items: start; gap: 40px; margin-bottom: 70px; }
 .section-heading .eyebrow { padding-top: 9px; }
@@ -146,7 +168,9 @@ footer > div:last-child { justify-self: end; display: flex; gap: 22px; font-size
   .hero { grid-template-columns: 1fr; }
   .hero-copy { padding: 90px 7vw 60px; }
   .hero-system { margin: 0 6vw 70px; min-height: 610px; }
-  .section-heading, .beta > div:first-child { grid-template-columns: 1fr; gap: 8px; }
+  .section-heading, .beta > div:first-child, .use-case-intro { grid-template-columns: 1fr; gap: 8px; }
+  .use-case-intro .eyebrow, .use-case-intro > p:last-child { grid-column: 1; grid-row: auto; }
+  .use-case-intro > p:last-child { margin-top: 12px; }
   .security { grid-template-columns: 1fr; }
   .beta-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -168,14 +192,20 @@ footer > div:last-child { justify-self: end; display: flex; gap: 22px; font-size
   .host-icon { display: none; }
   .workspace { margin-left: 2px; padding-left: 18px; font-size: 8px; }
   .workspace-line, .workspace-label { margin-left: 8px; }
+  .terminal-grid { grid-template-columns: 1fr; }
+  .terminal-pane.secondary { display: none; }
   .terminal-head { font-size: 7px; }
   .terminal-head span:first-child { max-width: 110px; overflow: hidden; white-space: nowrap; }
   .terminal-body { padding: 20px 13px; font-size: 9px; }
   .proof-strip { min-height: 66px; padding: 0 20px; }
-  .statement, .workflow, .architecture, .sessions, .security, .beta, .faq, .final-cta { padding: 76px 20px; }
-  .statement h2, .section-heading h2, .sessions h2, .security h2, .beta h2, .final-cta h2 { font-size: 45px; }
-  .statement > p:last-child { margin-top: 40px; }
-  .steps, .mode-grid { grid-template-columns: 1fr; }
+  .use-cases, .workflow, .architecture, .sessions, .security, .beta, .faq, .final-cta { padding: 76px 20px; }
+  .use-case-intro h2, .section-heading h2, .sessions h2, .security h2, .beta h2, .final-cta h2 { font-size: 45px; }
+  .agent-boundary { margin-top: 50px; }
+  .agent-columns, .use-case-grid, .steps, .mode-grid { grid-template-columns: 1fr; }
+  .agent-columns article { padding: 24px; }
+  .agent-columns article + article { border-left: 0; border-top: 1px solid #444; }
+  .agent-columns h3 { margin-top: 48px; }
+  .use-case-grid article { min-height: 240px; }
   .steps li { min-height: 250px; }
   .mode + .mode { border-left: 0; border-top: 1px solid var(--black); }
   .mode { min-height: 410px; padding: 24px; }

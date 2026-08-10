@@ -21,7 +21,10 @@ const diskImage = await stat(resolve(root, "dist/downloads", diskImageName));
 const latestDiskImage = await stat(resolve(root, "dist/downloads/Skep-latest-macOS-arm64.dmg"));
 
 for (const phrase of [
-  "Isolated compute that stays yours.",
+  "Run coding agents.",
+  "One persistent microVM per agent",
+  "Parallel agents without shared-state chaos.",
+  "DOCKER + DB",
   "Google Cloud IAP",
   "Automatic service updates",
   "Developer ID signed",
@@ -29,8 +32,11 @@ for (const phrase of [
   "og:image:width",
   "site.webmanifest",
   "application/ld+json",
+  "Does Skep run the coding agent for me?",
   "Is Skep open source?"
 ]) assert(home.includes(phrase), `Missing launch copy: ${phrase}`);
+
+assert(!home.includes("Isolated compute that stays yours."), "Old abstract positioning is still present");
 
 assert(privacy.includes("does not currently use advertising trackers"));
 assert(privacy.includes('property="og:image"'));

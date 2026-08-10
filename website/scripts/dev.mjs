@@ -15,6 +15,7 @@ const mime = {
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".png": "image/png",
+  ".svg": "image/svg+xml; charset=utf-8",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
   ".zip": "application/zip"
@@ -24,7 +25,7 @@ createServer((request, response) => {
   const requested = decodeURIComponent((request.url ?? "/").split("?")[0]);
   const safePath = normalize(requested).replace(/^(\.\.(\/|\\|$))+/, "");
   let file = join(root, "dist", safePath);
-  if (requested === "/download") file = join(root, "dist", "downloads", "Skep-0.1.0-macOS-arm64.zip");
+  if (requested === "/download") file = join(root, "dist", "downloads", "Skep-latest-macOS-arm64.dmg");
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(file, "index.html");
   if (!existsSync(file)) {
     response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });

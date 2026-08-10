@@ -3,27 +3,27 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Skep — Isolated compute that stays yours</title>
-    <meta name="description" content="Build persistent microVM workspaces on your Apple Silicon Mac or a remote Linux host. One native app for local compute, SSH, and Google Cloud IAP.">
+    <title>Skep — Isolated workspaces for coding agents</title>
+    <meta name="description" content="Give every coding agent its own persistent Linux microVM, Docker environment, database, and ports. Run locally on Apple Silicon or on your own Linux host.">
     <meta name="application-name" content="Skep">
     <meta name="apple-mobile-web-app-title" content="Skep">
     <meta name="theme-color" content="#050505">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Skep">
     <meta property="og:locale" content="en_US">
-    <meta property="og:title" content="Skep — Isolated compute that stays yours">
-    <meta property="og:description" content="Persistent microVM workspaces, locally on Apple Silicon or remotely over SSH and Google Cloud IAP.">
+    <meta property="og:title" content="Skep — Isolated workspaces for coding agents">
+    <meta property="og:description" content="Run coding agents in parallel without shared Docker, database, port, or filesystem collisions.">
     <meta property="og:url" content="https://skep-compute.vercel.app">
     <meta property="og:image" content="https://skep-compute.vercel.app/og.png">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Skep — Isolated compute that stays yours. Local, SSH, and Google Cloud IAP.">
+    <meta property="og:image:alt" content="Skep — Run coding agents. Keep their worlds apart. One persistent microVM per agent.">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Skep — Isolated compute that stays yours">
-    <meta name="twitter:description" content="Persistent microVM workspaces, locally or on your own Linux hosts.">
+    <meta name="twitter:title" content="Skep — Isolated workspaces for coding agents">
+    <meta name="twitter:description" content="One persistent Linux microVM per coding agent, locally or on your own cloud host.">
     <meta name="twitter:image" content="https://skep-compute.vercel.app/og.png">
-    <meta name="twitter:image:alt" content="Skep — Isolated compute that stays yours.">
+    <meta name="twitter:image:alt" content="Skep — Run coding agents. Keep their worlds apart.">
     <link rel="canonical" href="https://skep-compute.vercel.app">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
@@ -38,10 +38,10 @@
         "name": "Skep",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS 14 or later",
-        "softwareVersion": "0.1.0",
+        "softwareVersion": "0.1.1",
         "url": "https://skep-compute.vercel.app",
         "downloadUrl": "https://skep-compute.vercel.app/download",
-        "description": "Persistent isolated compute on your Apple Silicon Mac and your own Linux hosts.",
+        "description": "Persistent isolated Linux workspaces for running coding agents in parallel on Apple Silicon and your own Linux hosts.",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -59,8 +59,8 @@
         <span>SKEP</span>
       </a>
       <nav aria-label="Primary navigation">
+        <a href="#use-cases">Use cases</a>
         <a href="#workflow">Workflow</a>
-        <a href="#architecture">Architecture</a>
         <a href="#faq">FAQ</a>
       </nav>
       <a class="header-cta" href="/download">Download beta <span aria-hidden="true">↘</span></a>
@@ -69,14 +69,14 @@
     <main id="main">
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="status-dot"></span> Private beta · macOS</p>
-          <h1>Isolated compute<br>that stays yours.</h1>
-          <p class="lede">Build a machine once. Publish a template. Open persistent microVM workspaces on your Mac or your own cloud host—without learning another cloud control plane.</p>
+          <p class="eyebrow"><span class="status-dot"></span> Coding agent workspaces · Private beta</p>
+          <h1>Run coding agents.<br>Keep their worlds apart.</h1>
+          <p class="lede">Give every agent its own persistent Linux microVM—with a separate filesystem, Docker environment, database, and ports. Run them on your Mac or your own cloud host and switch between their terminals from one native app.</p>
           <div class="hero-actions">
             <a class="button button-primary" href="/download">Download for Mac</a>
-            <a class="button button-secondary" href="#workflow">See the workflow</a>
+            <a class="button button-secondary" href="#use-cases">See what it solves</a>
           </div>
-          <p class="requirements">Apple Silicon · macOS 14+ · No account required</p>
+          <p class="requirements">Apple Silicon · macOS 14+ · Bring your own agent · No account required</p>
         </div>
         <div class="hero-system" aria-label="Skep application preview">
           <div class="window-bar">
@@ -91,17 +91,33 @@
               <div class="host"><span class="host-icon">◇</span><span>dev-gcp<small>GCP · IAP</small></span></div>
               <div class="workspace-line"></div>
               <p class="ui-label workspace-label">WORKSPACES 2</p>
-              <div class="workspace active"><span></span>agent-main <em>RUNNING</em></div>
-              <div class="workspace"><span></span>review-3085 <em>STOPPED</em></div>
+              <div class="workspace active"><span></span>supabase-auth <em>AGENT RUNNING</em></div>
+              <div class="workspace"><span></span>billing-webhooks <em>AGENT RUNNING</em></div>
             </aside>
             <div class="app-main">
-              <div class="terminal-head"><span>WORKSPACE / agent-main</span><span>● CONNECTED</span></div>
-              <div class="terminal-body">
-                <p><b>$</b> git status --short</p>
-                <p><i>M</i> src/agent/runtime.rs</p>
-                <p><b>$</b> docker compose up -d</p>
-                <p class="muted">[+] Running 4/4</p>
-                <p><b>$</b> <span class="cursor"></span></p>
+              <div class="terminal-grid">
+                <div class="terminal-pane">
+                  <div class="terminal-head"><span>01 / SUPABASE-AUTH</span><span>● CODEX</span></div>
+                  <div class="terminal-body">
+                    <p><b>$</b> codex "add passkey auth"</p>
+                    <p class="muted">Working in auth/callback.ts</p>
+                    <p><b>$</b> docker compose ps</p>
+                    <p><i>api</i> &nbsp; :3000 &nbsp; running</p>
+                    <p><i>db</i> &nbsp;&nbsp; :5432 &nbsp; running</p>
+                    <p><b>$</b> <span class="cursor"></span></p>
+                  </div>
+                </div>
+                <div class="terminal-pane secondary">
+                  <div class="terminal-head"><span>02 / BILLING-WEBHOOKS</span><span>● CLAUDE</span></div>
+                  <div class="terminal-body">
+                    <p><b>$</b> claude "add billing portal"</p>
+                    <p class="muted">Working in billing/webhooks.ts</p>
+                    <p><b>$</b> docker compose ps</p>
+                    <p><i>api</i> &nbsp; :3000 &nbsp; running</p>
+                    <p><i>db</i> &nbsp;&nbsp; :5432 &nbsp; running</p>
+                    <p><b>$</b> <span class="cursor static"></span></p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -109,39 +125,86 @@
       </section>
 
       <section class="proof-strip" aria-label="Product capabilities">
-        <span>LOCAL APPLE SILICON</span>
-        <span>REGULAR SSH</span>
-        <span>GOOGLE CLOUD IAP</span>
-        <span>DOCKER INSIDE</span>
-        <span>PERSISTENT DISKS</span>
+        <span>ONE MICROVM PER AGENT</span>
+        <span>OWN DOCKER</span>
+        <span>OWN DATABASE</span>
+        <span>OWN PORTS</span>
+        <span>LOCAL OR YOUR CLOUD</span>
       </section>
 
-      <section class="statement section-rule">
-        <p class="eyebrow">THE PREMISE</p>
-        <h2>Your laptop should feel local.<br>Your compute does not have to be.</h2>
-        <p>Skep treats your Mac and your Linux VMs as one pool of isolated development capacity. The interface stays the same whether a workspace is running three feet away or behind Google Cloud IAP.</p>
+      <section id="use-cases" class="use-cases section-rule">
+        <div class="use-case-intro">
+          <p class="eyebrow">THE JOB</p>
+          <h2>Parallel agents without shared-state chaos.</h2>
+          <p>Another checkout is not another computer. Two agents can still fight over Docker, databases, ports, dependencies, and migrations. Skep gives each task a complete, persistent machine.</p>
+        </div>
+        <div class="agent-boundary" aria-label="Two coding agents running in separate workspaces">
+          <div class="boundary-head">
+            <span>SAME PROJECT</span>
+            <span>SEPARATE MACHINES</span>
+          </div>
+          <div class="agent-columns">
+            <article>
+              <p class="agent-index">AGENT 01 / AUTH</p>
+              <h3>supabase-auth</h3>
+              <ul>
+                <li><span>WORKING TREE</span><strong>isolated</strong></li>
+                <li><span>DOCKER + DB</span><strong>private</strong></li>
+                <li><span>PORT 3000</span><strong>available</strong></li>
+                <li><span>STATE</span><strong>persistent</strong></li>
+              </ul>
+            </article>
+            <article>
+              <p class="agent-index">AGENT 02 / BILLING</p>
+              <h3>billing-webhooks</h3>
+              <ul>
+                <li><span>WORKING TREE</span><strong>isolated</strong></li>
+                <li><span>DOCKER + DB</span><strong>private</strong></li>
+                <li><span>PORT 3000</span><strong>available</strong></li>
+                <li><span>STATE</span><strong>persistent</strong></li>
+              </ul>
+            </article>
+          </div>
+        </div>
+        <div class="use-case-grid">
+          <article>
+            <span>01</span>
+            <h3>Ship features in parallel</h3>
+            <p>Put Codex, Claude Code, or another CLI agent in a workspace per task. Each gets the complete stack without colliding with the others.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Keep long jobs remote</h3>
+            <p>Run on a Linux VM you control, including hosts behind Google Cloud IAP. Close your laptop and reconnect to the same persistent workspace.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Review without residue</h3>
+            <p>Launch a clean machine from your template, install project dependencies, run the full stack, then delete the workspace when the review is done.</p>
+          </article>
+        </div>
       </section>
 
       <section id="workflow" class="workflow section-rule">
         <div class="section-heading">
           <p class="eyebrow">ONE REPEATABLE LOOP</p>
-          <h2>From clean image to working machine.</h2>
+          <h2>Prepare once. Launch a machine per task.</h2>
         </div>
         <ol class="steps">
           <li>
             <span class="step-number">01</span>
-            <h3>Build</h3>
-            <p>Start an editable microVM from an OCI image. Install your tools through a full terminal and keep the builder around.</p>
+            <h3>Prepare</h3>
+            <p>Start an editable Linux microVM. Install your coding agents, repository tools, Docker stack, and project dependencies once.</p>
           </li>
           <li>
             <span class="step-number">02</span>
-            <h3>Publish</h3>
-            <p>Capture a verified, immutable template. The source builder remains available when you need to change the baseline.</p>
+            <h3>Template</h3>
+            <p>Capture a verified baseline. The source builder stays available whenever your toolchain or project setup changes.</p>
           </li>
           <li>
             <span class="step-number">03</span>
-            <h3>Launch</h3>
-            <p>Create isolated, persistent workspaces with dedicated filesystems and Docker data disks. Stop them without losing state.</p>
+            <h3>Assign</h3>
+            <p>Launch one persistent workspace per agent or task. Stop it without losing state, or delete the whole environment when the work is done.</p>
           </li>
         </ol>
       </section>
@@ -149,13 +212,13 @@
       <section id="architecture" class="architecture section-rule">
         <div class="section-heading">
           <p class="eyebrow">ONE APP, TWO EXECUTION MODES</p>
-          <h2>Local when you want it.<br>Remote when you need it.</h2>
+          <h2>Your agents can work here.<br>Or on your own cloud VM.</h2>
         </div>
         <div class="mode-grid">
           <article class="mode mode-dark">
             <p class="mode-index">A / LOCAL</p>
             <h3>This Mac</h3>
-            <p>Run Linux microVMs through the native Apple Silicon Microsandbox runtime. No SSH, cloud account, or administrator install.</p>
+            <p>Run agent workspaces locally through the native Apple Silicon Microsandbox runtime. No SSH, cloud account, or administrator install.</p>
             <ul>
               <li>Private Unix control socket</li>
               <li>User-owned local service</li>
@@ -165,7 +228,7 @@
           <article class="mode">
             <p class="mode-index">B / REMOTE</p>
             <h3>Your Linux host</h3>
-            <p>Connect using credentials already configured on your Mac. Skep supports regular SSH and Google Cloud IAP tunnels.</p>
+            <p>Move heavier or longer-running agent work to a Linux VM you control. Connect with your existing SSH credentials or Google Cloud IAP.</p>
             <ul>
               <li>No daemon port exposed</li>
               <li>Checksummed host payload</li>
@@ -181,7 +244,7 @@
           <h2>Switch machines like tabs.</h2>
         </div>
         <div class="sessions-copy">
-          <p>Each host expands into its workspaces in the sidebar. Open one and its terminal stays attached while you move through the rest of the app.</p>
+          <p>Each host expands into its agent workspaces in the sidebar. Open one and its terminal stays attached while you move through the rest of the app.</p>
           <dl>
             <div><dt>Sleep</dt><dd>Reconnect after your Mac wakes.</dd></div>
             <div><dt>Network drop</dt><dd>Retry automatically, then offer a manual reconnect.</dd></div>
@@ -200,7 +263,7 @@
           <div><span>01</span><p>Your private SSH keys and Google Cloud credentials stay on your Mac.</p></div>
           <div><span>02</span><p>The remote service is reached through SSH and a host-local Unix socket—not a public API port.</p></div>
           <div><span>03</span><p>Host binaries ship with the app, are checksum-verified, and update without deleting workspace state.</p></div>
-          <div><span>04</span><p>Docker runs inside each Linux workspace instead of sharing your Mac’s Docker daemon.</p></div>
+          <div><span>04</span><p>Every agent gets its own Linux filesystem and Docker daemon instead of sharing development state on your Mac.</p></div>
         </div>
       </section>
 
@@ -224,6 +287,7 @@
           <h2>The short answers.</h2>
         </div>
         <div class="faq-list">
+          <details><summary>Does Skep run the coding agent for me?</summary><p>No. Skep creates and connects you to the isolated Linux machine where your preferred CLI agent runs. Install Codex, Claude Code, OpenCode, or any other terminal-based development tool in your builder, then include it in your reusable template.</p></details>
           <details><summary>Is Skep open source?</summary><p>Not yet. The current beta is distributed as a binary while the product and release model settle. The underlying Microsandbox runtime is Apache-2.0 software.</p></details>
           <details><summary>Does it replace Docker?</summary><p>No. Skep creates the isolated Linux machines. Docker runs normally inside each builder and workspace.</p></details>
           <details><summary>Does Skep create cloud VMs?</summary><p>Not in this preview. Point it at a compatible Linux VM you already control. It can parse a complete <code>gcloud compute ssh … --tunnel-through-iap</code> command for you.</p></details>
@@ -233,19 +297,19 @@
       </section>
 
       <section class="final-cta section-rule">
-        <p class="eyebrow">START WITH ONE MACHINE</p>
-        <h2>Make isolated workspaces feel ordinary.</h2>
+        <p class="eyebrow">START WITH TWO TASKS</p>
+        <h2>Let the agents work in parallel—not on top of each other.</h2>
         <div class="hero-actions">
           <a class="button button-primary inverse" href="/download">Download the private beta</a>
           <a class="button button-secondary inverse" href="mailto:storozhenkomykyta@gmail.com?subject=Skep%20private%20beta">Send feedback</a>
         </div>
-        <p>Version 0.1.0 · Apple Silicon · macOS 14+</p>
+        <p>Version 0.1.1 · Apple Silicon · macOS 14+</p>
       </section>
     </main>
 
     <footer>
       <div class="brand"><img class="brand-icon" src="/favicon.svg" alt="" width="30" height="30"><span>SKEP</span></div>
-      <p>Isolated compute that stays yours.</p>
+      <p>Isolated workspaces for coding agents.</p>
       <div><a href="/privacy/">Privacy</a><a href="mailto:storozhenkomykyta@gmail.com">Contact</a></div>
     </footer>
   </body>
