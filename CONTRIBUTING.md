@@ -43,12 +43,14 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace
 ./scripts/generate-rust-licenses.sh
 (cd apps/macos && swift test)
-(cd website && npm run build && npm run check)
+(cd website && npm run build && npm run check:source)
 ```
 
 The committed Rust license report must remain in sync with `Cargo.lock`. The
 website build output, application bundles, update archives, disk images, and
 Ghostty XCFramework are generated locally and intentionally ignored by Git.
+The full `npm run check` additionally validates signed release artifacts and is
+used from a release checkout where those ignored files are present.
 
 ## Pull requests
 

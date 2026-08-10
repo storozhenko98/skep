@@ -61,5 +61,5 @@ jobs:
         run: npm run build
         working-directory: website
       - name: Validate site
-        run: npm run check
+        run: npm run check:source
         working-directory: website
