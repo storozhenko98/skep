@@ -40,6 +40,8 @@ install -m 0644 "$MACOS_ROOT/Resources/Skep.icns" "$CONTENTS/Resources/$ICON_NAM
 /usr/libexec/PlistBuddy -c "Set :CFBundleIconName ${ICON_NAME%.icns}" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :SUFeedURL $UPDATE_FEED_URL" "$CONTENTS/Info.plist"
 install -m 0644 "$REPOSITORY_ROOT/THIRD_PARTY_NOTICES.md" "$CONTENTS/Resources/THIRD_PARTY_NOTICES.md"
+install -m 0644 "$REPOSITORY_ROOT/LICENSE" "$CONTENTS/Resources/LICENSE.txt"
+install -m 0644 "$REPOSITORY_ROOT/RUST_THIRD_PARTY_LICENSES.html" "$CONTENTS/Resources/RUST_THIRD_PARTY_LICENSES.html"
 ditto "$REPOSITORY_ROOT/artifacts/host-installer" "$CONTENTS/Resources/HostInstaller"
 ditto "$REPOSITORY_ROOT/artifacts/local-host-installer" "$CONTENTS/Resources/LocalHostInstaller"
 ditto "$BUILD_ROOT/Sparkle.framework" "$CONTENTS/Frameworks/Sparkle.framework"

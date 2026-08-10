@@ -35,7 +35,6 @@ makes the terminal a first-class macOS view.
 | [Microsandbox](https://github.com/superradcompany/microsandbox) | `2208be04a59a4aedb80ae305e47c4ca4cb67b4a0` | Apache-2.0 |
 | [Beehive](https://github.com/storozhenko98/beehive) | `2b765bea436b69799a777df0fae960728e3fdf15` | MIT |
 | [Ghostty](https://github.com/ghostty-org/ghostty) | `f9b2ad8dbed93e0b8cdd6320d8f5a46ba15c5bc8` | MIT |
-| [Runtime integration](https://github.com/superradcompany/microsandbox) | `2208be04a59a4aedb80ae305e47c4ca4cb67b4a0` | Apache-2.0 |
 
 Google Cloud's nested-virtualization and IAP documentation was also checked on
 the research date.
@@ -83,7 +82,7 @@ Microsandbox has direct SSH support, but Skep can keep the desktop-to-host
 boundary uniform by tunneling all operations through the host's SSH connection
 and letting `skepd` use the local Rust SDK.
 
-## Runtime integration setup findings
+## Runtime integration findings
 
 Early Skep runtime experiments established the desired core behavior:
 
@@ -120,8 +119,8 @@ The operational lessons that must become product behavior are:
 
 The setup used fixed public resolvers because the host was a Mac that roamed
 between networks. On a stable cloud Linux host, inheriting host DNS is a safer
-general default; Skep should allow an opt-in pinned-resolver
-behavior as an override.
+general default; Skep should allow an opt-in pinned-resolver profile as an
+override.
 
 ## Beehive findings
 
@@ -140,9 +139,9 @@ attention state, terminal lifecycle, local CLI integration, and release
 pipeline. Skep should not carry over the hive/nest/comb vocabulary or the
 filesystem-clone data model.
 
-Because Beehive is MIT-licensed, code can be reused with its copyright and
-license notice preserved. Reuse should be intentional and traceable rather
-than copying the whole application as a starting point.
+Beehive was used as product and architecture prior art. No Beehive source is
+vendored in Skep. Any future source reuse must be intentional, traceable, and
+retain the applicable MIT copyright and license notice.
 
 ## Ghostty findings
 

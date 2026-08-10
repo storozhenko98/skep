@@ -27,8 +27,10 @@ apps/macos/Frameworks/GhosttyKit.xcframework/
 # Local Skep state and generated artifacts
 .skep/
 artifacts/
+website/dist/
 *.tar.zst
 *.dmg
+*.zip
 *.app/
 
 # Editors

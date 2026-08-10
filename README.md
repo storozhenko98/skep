@@ -6,7 +6,7 @@ Microsandbox's native Apple Silicon virtualization; remote hosts connect through
 the user's existing OpenSSH or Google Cloud IAP setup. Both routes use the same
 small Rust control service and [Microsandbox](https://github.com/superradcompany/microsandbox).
 
-**Private beta:** [product site](https://skep-compute.vercel.app) ·
+**Beta:** [product site](https://skep-compute.vercel.app) ·
 [download the current Apple Silicon build](https://skep-compute.vercel.app/download)
 
 > **MVP status:** implemented and locally packaged. The native local transport,
@@ -101,7 +101,7 @@ production download is Developer ID signed and notarized; running
 `package-macos.sh` without a signing identity intentionally creates only a
 local ad-hoc build.
 
-To build the complete private-beta release, including the signed Sparkle feed
+To build the complete beta release, including the signed Sparkle feed
 and drag-to-Applications DMG:
 
 ```sh
@@ -255,13 +255,23 @@ crates/skepctl/           Unix-socket client, SSH bridge, workspace shell
 deploy/                   systemd unit and host installers
 docs/                     architecture, VM setup, and research
 scripts/                  Ghostty build and macOS packaging
-website/                  static launch and private-beta distribution site
+website/                  static launch and release distribution site
 ```
 
 ## Privacy and licensing
 
-This repository remains private and currently uses proprietary package
-metadata; no permission is granted to copy or distribute Skep itself.
-Third-party components keep their licenses. The packaged app includes the
-Ghostty MIT notice; Microsandbox remains an unmodified, separately installed
-Apache-2.0 runtime. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Skep is licensed under the [Apache License 2.0](LICENSE). Contributions are
+accepted under the same license. Third-party components keep their own terms.
+The packaged app includes the Ghostty and Sparkle notices; Microsandbox remains
+an unmodified, separately installed Apache-2.0 runtime. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
+[ACKNOWLEDGMENTS.md](ACKNOWLEDGMENTS.md).
+
+## Contributing and support
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the development environment,
+verification commands, and pull-request expectations. Use
+[GitHub Issues](https://github.com/storozhenko98/skep/issues) for bugs and
+focused feature requests. Vulnerabilities must be reported privately according
+to [SECURITY.md](SECURITY.md). The repository visibility and launch gates are
+tracked in [docs/open-source-release.md](docs/open-source-release.md).

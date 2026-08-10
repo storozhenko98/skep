@@ -332,25 +332,25 @@ import Testing
 }
 
 @Test func parsesPastedGCloudIAPCommand() throws {
-    let command = "gcloud compute ssh agent-host --zone=us-west1-a --project=example-project --tunnel-through-iap"
+    let command = "gcloud compute ssh agent-host --zone=us-central1-a --project=example-project --tunnel-through-iap"
     let parsed = try GCloudSSHCommand.parse(command)
     #expect(parsed.instance == "agent-host")
-    #expect(parsed.zone == "us-west1-a")
+    #expect(parsed.zone == "us-central1-a")
     #expect(parsed.project == "example-project")
     #expect(parsed.username == nil)
 }
 
 @Test func normalizesHiddenNewlinesForSingleLineDisplay() throws {
-    let pasted = "gcloud compute ssh agent-host --zone=us-west1-a --project=example-project --tunnel-through-iap\n"
+    let pasted = "gcloud compute ssh agent-host --zone=us-central1-a --project=example-project --tunnel-through-iap\n"
     let normalized = GCloudSSHCommand.normalizedPastedInput(pasted)
-    #expect(normalized == "gcloud compute ssh agent-host --zone=us-west1-a --project=example-project --tunnel-through-iap")
+    #expect(normalized == "gcloud compute ssh agent-host --zone=us-central1-a --project=example-project --tunnel-through-iap")
     #expect(try GCloudSSHCommand.parse(normalized).instance == "agent-host")
 }
 
 @Test func normalizesMultilineShellCommandForSingleLineDisplay() throws {
     let pasted = """
     gcloud compute ssh agent-host \\
-      --zone=us-west1-a \\
+      --zone=us-central1-a \\
       --project=example-project \\
       --tunnel-through-iap
     """
@@ -359,11 +359,11 @@ import Testing
     #expect(!normalized.contains("\\"))
     let parsed = try GCloudSSHCommand.parse(normalized)
     #expect(parsed.project == "example-project")
-    #expect(parsed.zone == "us-west1-a")
+    #expect(parsed.zone == "us-central1-a")
 }
 
 @Test func removesFlattenedShellContinuationMarkers() throws {
-    let pasted = "gcloud compute ssh agent-host \\   --zone=us-west1-a \\   --project=example-project \\   --tunnel-through-iap"
+    let pasted = "gcloud compute ssh agent-host \\   --zone=us-central1-a \\   --project=example-project \\   --tunnel-through-iap"
     let normalized = GCloudSSHCommand.normalizedPastedInput(pasted)
     #expect(!normalized.contains("\\"))
     #expect(try GCloudSSHCommand.parse(normalized).project == "example-project")

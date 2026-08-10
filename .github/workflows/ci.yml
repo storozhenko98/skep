@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install stable Rust
+        run: rustup update stable --no-self-update
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Install license report generator
+        run: cargo install --locked --version 0.9.1 --features cli cargo-about
+      - name: Verify Rust dependency licenses
+        run: |
+          ./scripts/generate-rust-licenses.sh
+          git diff --exit-code -- RUST_THIRD_PARTY_LICENSES.html
+
+  macos:
+    name: macOS client
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install Zig
+        run: brew install zig
+      - name: Build pinned Ghostty framework
+        run: ./scripts/build-ghostty-framework.sh
+      - name: Test Swift packages
+        run: swift test --package-path apps/macos
+
+  website:
+    name: Website
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Build site
+        run: npm run build
+        working-directory: website
+      - name: Validate site
+        run: npm run check
+        working-directory: website

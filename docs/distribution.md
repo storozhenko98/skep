@@ -1,8 +1,9 @@
-# Private distribution and updates
+# Distribution and updates
 
-Skep is currently distributed as a private-source beta. The GitHub repository
-must remain private. Vercel serves only the static product site, the packaged
-macOS application, release notes, checksums, and the Sparkle appcast.
+Skep is currently distributed as a signed beta. Repository visibility is a
+separate release decision and must remain private until the owner explicitly
+changes it. Vercel serves only the static product site, the packaged macOS
+application, release notes, checksums, and the Sparkle appcast.
 
 Production endpoints:
 
@@ -43,7 +44,7 @@ The command builds and tests the Rust and Swift components, creates
 Sparkle appcast with the Ed25519 update key stored in the macOS Keychain, and
 and writes the Sparkle archive under `artifacts/updates`, plus the public disk
 image and its `SHA256SUMS` under `artifacts/distribution`.
-The private beta publishes full archives rather than binary deltas, which keeps
+The beta channel publishes full archives rather than binary deltas, which keeps
 the first transition from an ad-hoc build to a Developer ID build explicit.
 
 The Sparkle account is `com.storozhenko.skep`. Its private key must never be

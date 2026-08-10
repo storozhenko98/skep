@@ -1161,7 +1161,7 @@ async fn disk_info() -> (u64, u64) {
 async fn virtualization_info() -> VirtualizationInfo {
     #[cfg(target_os = "macos")]
     {
-        return VirtualizationInfo {
+        VirtualizationInfo {
             provider: Some("apple-virtualization".to_string()),
             cpu_virtualization: true,
             kvm_device: false,
@@ -1172,7 +1172,7 @@ async fn virtualization_info() -> VirtualizationInfo {
             } else {
                 Some("Microsandbox local workspaces require Apple Silicon".to_string())
             },
-        };
+        }
     }
 
     #[cfg(not(target_os = "macos"))]

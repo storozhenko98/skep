@@ -1,0 +1,56 @@
+name: Bug report
+description: Report reproducible incorrect behavior in Skep.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Remove credentials, cloud project identifiers, IP addresses, and private host data. Report security vulnerabilities through SECURITY.md instead.
+  - type: input
+    id: version
+    attributes:
+      label: Skep version
+      placeholder: 0.1.1 (build 6)
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: macOS version, Mac architecture, host OS, and connection type.
+      placeholder: macOS 15, Apple Silicon, Ubuntu 24.04 over Google Cloud IAP
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Add a host
+        2. Open Workspaces
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and sanitized logs
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I removed credentials and private infrastructure details.
+          required: true
