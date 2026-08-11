@@ -15,6 +15,9 @@ const vercel = JSON.parse(await readFile(resolve(root, "vercel.json"), "utf8"));
 
 for (const phrase of [
   "Run coding agents.",
+  "Open source · Apache 2.0",
+  "Your agent infrastructure should not be a black box.",
+  "git clone https://github.com/storozhenko98/skep.git",
   "One persistent microVM per agent",
   "Parallel agents without shared-state chaos.",
   "DOCKER + DB",
@@ -36,7 +39,9 @@ assert(privacy.includes('rel="canonical"'));
 assert.equal(release.version, version);
 assert.equal(release.build, build);
 assert.equal(release.installer, "dmg");
-assert.equal(release.channel, "private-beta");
+assert.equal(release.channel, "open-source-beta");
+assert.equal(release.source, "https://github.com/storozhenko98/skep");
+assert.equal(release.license, "Apache-2.0");
 
 const downloadHeaders = vercel.headers.find((entry) => entry.source === "/downloads/(.*)")?.headers ?? [];
 assert(

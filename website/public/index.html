@@ -3,27 +3,27 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Skep — Isolated workspaces for coding agents</title>
-    <meta name="description" content="Give every coding agent its own persistent Linux microVM, Docker environment, database, and ports. Run locally on Apple Silicon or on your own Linux host.">
+    <title>Skep — Open-source workspaces for coding agents</title>
+    <meta name="description" content="Open-source isolated workspaces for coding agents. Give every agent its own persistent Linux microVM, Docker environment, database, and ports—on your Mac or your own Linux host.">
     <meta name="application-name" content="Skep">
     <meta name="apple-mobile-web-app-title" content="Skep">
     <meta name="theme-color" content="#050505">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Skep">
     <meta property="og:locale" content="en_US">
-    <meta property="og:title" content="Skep — Isolated workspaces for coding agents">
-    <meta property="og:description" content="Run coding agents in parallel without shared Docker, database, port, or filesystem collisions.">
+    <meta property="og:title" content="Skep — Open-source workspaces for coding agents">
+    <meta property="og:description" content="Run coding agents in persistent, isolated microVMs. Open source under Apache 2.0.">
     <meta property="og:url" content="https://skep-compute.vercel.app">
     <meta property="og:image" content="https://skep-compute.vercel.app/og.png">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Skep — Run coding agents. Keep their worlds apart. One persistent microVM per agent.">
+    <meta property="og:image:alt" content="Skep — Run coding agents. Keep their worlds apart. One persistent microVM per agent. Open source under Apache 2.0.">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Skep — Isolated workspaces for coding agents">
-    <meta name="twitter:description" content="One persistent Linux microVM per coding agent, locally or on your own cloud host.">
+    <meta name="twitter:title" content="Skep — Open-source workspaces for coding agents">
+    <meta name="twitter:description" content="One persistent Linux microVM per coding agent. Local-first, self-hosted, and Apache 2.0 licensed.">
     <meta name="twitter:image" content="https://skep-compute.vercel.app/og.png">
-    <meta name="twitter:image:alt" content="Skep — Run coding agents. Keep their worlds apart.">
+    <meta name="twitter:image:alt" content="Skep — Open-source isolated workspaces for coding agents.">
     <link rel="canonical" href="https://skep-compute.vercel.app">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
@@ -38,10 +38,13 @@
         "name": "Skep",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS 14 or later",
-        "softwareVersion": "0.1.1",
+        "softwareVersion": "0.1.2",
         "url": "https://skep-compute.vercel.app",
         "downloadUrl": "https://skep-compute.vercel.app/download",
-        "description": "Persistent isolated Linux workspaces for running coding agents in parallel on Apple Silicon and your own Linux hosts.",
+        "codeRepository": "https://github.com/storozhenko98/skep",
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "isAccessibleForFree": true,
+        "description": "Open-source, persistent isolated Linux workspaces for running coding agents in parallel on Apple Silicon and your own Linux hosts.",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -61,22 +64,23 @@
       <nav aria-label="Primary navigation">
         <a href="#use-cases">Use cases</a>
         <a href="#workflow">Workflow</a>
+        <a href="#open-source">Open source</a>
         <a href="#faq">FAQ</a>
       </nav>
-      <a class="header-cta" href="/download">Download beta <span aria-hidden="true">↘</span></a>
+      <a class="header-cta" href="https://github.com/storozhenko98/skep">GitHub <span aria-hidden="true">↗</span></a>
     </header>
 
     <main id="main">
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="status-dot"></span> Coding agent workspaces · Private beta</p>
+          <p class="eyebrow"><span class="status-dot"></span> Open source · Apache 2.0</p>
           <h1>Run coding agents.<br>Keep their worlds apart.</h1>
-          <p class="lede">Give every agent its own persistent Linux microVM—with a separate filesystem, Docker environment, database, and ports. Run them on your Mac or your own cloud host and switch between their terminals from one native app.</p>
+          <p class="lede">Skep is an open-source macOS app that gives every coding agent its own persistent Linux microVM—with a separate filesystem, Docker environment, database, and ports. Run locally or on your own cloud host.</p>
           <div class="hero-actions">
             <a class="button button-primary" href="/download">Download for Mac</a>
-            <a class="button button-secondary" href="#use-cases">See what it solves</a>
+            <a class="button button-secondary" href="https://github.com/storozhenko98/skep">View source <span aria-hidden="true">↗</span></a>
           </div>
-          <p class="requirements">Apple Silicon · macOS 14+ · Bring your own agent · No account required</p>
+          <p class="requirements">Apache 2.0 · Apple Silicon · macOS 14+ · No account required</p>
         </div>
         <div class="hero-system" aria-label="Skep application preview">
           <div class="window-bar">
@@ -125,11 +129,33 @@
       </section>
 
       <section class="proof-strip" aria-label="Product capabilities">
+        <span>OPEN SOURCE / APACHE 2.0</span>
         <span>ONE MICROVM PER AGENT</span>
         <span>OWN DOCKER</span>
-        <span>OWN DATABASE</span>
-        <span>OWN PORTS</span>
         <span>LOCAL OR YOUR CLOUD</span>
+        <span>NO ACCOUNT</span>
+      </section>
+
+      <section id="open-source" class="open-source section-rule">
+        <div class="open-source-intro">
+          <p class="eyebrow">THE WHOLE STACK / APACHE 2.0</p>
+          <h2>Your agent infrastructure should not be a black box.</h2>
+          <p>Skep's native Mac client, Rust host daemon, command-line bridge, installer, and website are developed in public. Audit what runs on your machines, build it yourself, fork it for your stack, or send a pull request.</p>
+          <div class="hero-actions">
+            <a class="button button-primary inverse" href="https://github.com/storozhenko98/skep">Browse the source <span aria-hidden="true">↗</span></a>
+            <a class="button button-secondary inverse" href="https://github.com/storozhenko98/skep/blob/main/LICENSE">Read the license</a>
+          </div>
+        </div>
+        <div class="source-panel" aria-label="Skep source repository">
+          <div class="source-panel-head"><span>GITHUB / STOROZHENKO98 / SKEP</span><span>PUBLIC</span></div>
+          <p><span>$</span> git clone https://github.com/storozhenko98/skep.git</p>
+          <dl>
+            <div><dt>CLIENT</dt><dd>SwiftUI + AppKit</dd></div>
+            <div><dt>HOST</dt><dd>Rust · skepd · skepctl</dd></div>
+            <div><dt>LICENSE</dt><dd>Apache 2.0</dd></div>
+            <div><dt>RUNTIME</dt><dd>Your Mac or Linux VM</dd></div>
+          </dl>
+        </div>
       </section>
 
       <section id="use-cases" class="use-cases section-rule">
@@ -269,16 +295,16 @@
 
       <section class="beta section-rule">
         <div>
-          <p class="eyebrow">PRIVATE BETA 0.1</p>
-          <h2>Useful now. Signed properly.</h2>
+          <p class="eyebrow">OPEN-SOURCE BETA 0.1</p>
+          <h2>Inspect the source. Run the signed build.</h2>
         </div>
         <div class="beta-grid">
           <div><strong>LOCAL</strong><p>Apple Silicon Mac<br>macOS 14 or newer</p></div>
           <div><strong>REMOTE</strong><p>Ubuntu 24.04 x86-64<br>systemd + KVM</p></div>
           <div><strong>CONNECTION</strong><p>OpenSSH<br>Google Cloud IAP</p></div>
-          <div><strong>DISTRIBUTION</strong><p>Private source<br>Developer ID signed</p></div>
+          <div><strong>DISTRIBUTION</strong><p>Apache 2.0 source<br>Developer ID signed</p></div>
         </div>
-        <div class="beta-warning"><span>SIGNED BETA</span><p>This build is Developer ID signed, notarized by Apple, and distributed through a signed Sparkle update feed. Skep remains a private-source beta while the product and compatibility surface mature.</p></div>
+        <div class="beta-warning"><span>EARLY RELEASE</span><p>The source is public and the Mac build is Developer ID signed, notarized by Apple, and distributed through a signed Sparkle update feed. The compatibility surface is still maturing, so expect sharp edges and report what you find.</p></div>
       </section>
 
       <section id="faq" class="faq section-rule">
@@ -288,7 +314,7 @@
         </div>
         <div class="faq-list">
           <details><summary>Does Skep run the coding agent for me?</summary><p>No. Skep creates and connects you to the isolated Linux machine where your preferred CLI agent runs. Install Codex, Claude Code, OpenCode, or any other terminal-based development tool in your builder, then include it in your reusable template.</p></details>
-          <details><summary>Is Skep open source?</summary><p>Not yet. The current beta is distributed as a binary while the product and release model settle. The underlying Microsandbox runtime is Apache-2.0 software.</p></details>
+          <details><summary>Is Skep open source?</summary><p>Yes. The native macOS client, <code>skepd</code> host daemon, <code>skepctl</code> bridge, installers, and website are available on GitHub under the Apache License 2.0. Microsandbox is a separate Apache-2.0 project that Skep installs without modification.</p></details>
           <details><summary>Does it replace Docker?</summary><p>No. Skep creates the isolated Linux machines. Docker runs normally inside each builder and workspace.</p></details>
           <details><summary>Does Skep create cloud VMs?</summary><p>Not in this preview. Point it at a compatible Linux VM you already control. It can parse a complete <code>gcloud compute ssh … --tunnel-through-iap</code> command for you.</p></details>
           <details><summary>What happens to my data when Skep updates?</summary><p>The Mac app replaces matching control binaries and restarts the service. Builders, templates, workspace disks, Docker data, and exports remain on the selected host.</p></details>
@@ -297,20 +323,20 @@
       </section>
 
       <section class="final-cta section-rule">
-        <p class="eyebrow">START WITH TWO TASKS</p>
-        <h2>Let the agents work in parallel—not on top of each other.</h2>
+        <p class="eyebrow">DOWNLOAD IT. AUDIT IT. FORK IT.</p>
+        <h2>Own the machines your agents work in.</h2>
         <div class="hero-actions">
-          <a class="button button-primary inverse" href="/download">Download the private beta</a>
-          <a class="button button-secondary inverse" href="mailto:storozhenkomykyta@gmail.com?subject=Skep%20private%20beta">Send feedback</a>
+          <a class="button button-primary inverse" href="/download">Download for Mac</a>
+          <a class="button button-secondary inverse" href="https://github.com/storozhenko98/skep">View source <span aria-hidden="true">↗</span></a>
         </div>
-        <p>Version 0.1.1 · Apple Silicon · macOS 14+</p>
+        <p>Version 0.1.2 · Apache 2.0 · Apple Silicon · macOS 14+</p>
       </section>
     </main>
 
     <footer>
       <div class="brand"><img class="brand-icon" src="/favicon.svg" alt="" width="30" height="30"><span>SKEP</span></div>
       <p>Isolated workspaces for coding agents.</p>
-      <div><a href="/privacy/">Privacy</a><a href="mailto:storozhenkomykyta@gmail.com">Contact</a></div>
+      <div><a href="https://github.com/storozhenko98/skep">GitHub</a><a href="https://github.com/storozhenko98/skep/blob/main/LICENSE">License</a><a href="/privacy/">Privacy</a></div>
     </footer>
   </body>
 </html>

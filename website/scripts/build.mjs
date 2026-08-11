@@ -64,7 +64,7 @@ if (checksumSources.length > 0) {
 
 await writeFile(
   resolve(destination, "release.json"),
-  `${JSON.stringify({ version, build, platform: "macOS", architecture: "arm64", installer: "dmg", channel: "private-beta" }, null, 2)}\n`
+  `${JSON.stringify({ version, build, platform: "macOS", architecture: "arm64", installer: "dmg", channel: "open-source-beta", source: "https://github.com/storozhenko98/skep", license: "Apache-2.0" }, null, 2)}\n`
 );
 
 console.log(`Built Skep launch site at ${destination}`);

@@ -74,6 +74,19 @@ h1 { max-width: 690px; margin-bottom: 28px; font-size: clamp(56px, 6.2vw, 98px);
 .proof-strip span { white-space: nowrap; }
 .proof-strip span::before { content: "■"; margin-right: 9px; }
 .section-rule { border-bottom: 1px solid var(--black); }
+.open-source { padding: 110px 6vw; color: var(--white); background: var(--black); display: grid; grid-template-columns: 1fr 1fr; gap: 8vw; align-items: end; }
+.open-source-intro h2 { max-width: 720px; margin-bottom: 24px; font-size: clamp(42px, 5.6vw, 84px); line-height: .98; letter-spacing: -.055em; font-weight: 650; }
+.open-source-intro > p:not(.eyebrow) { max-width: 680px; color: #aaa; font-size: clamp(17px, 1.6vw, 21px); line-height: 1.5; }
+.source-panel { border: 1px solid #5d5d5d; background: #101010; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.source-panel-head { min-height: 50px; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; gap: 24px; color: #909090; border-bottom: 1px solid #444; font-size: 9px; font-weight: 700; letter-spacing: .13em; }
+.source-panel-head span:last-child { color: var(--white); }
+.source-panel > p { min-height: 132px; margin: 0; padding: 40px 24px; display: flex; align-items: flex-start; gap: 14px; overflow-x: auto; color: var(--white); border-bottom: 1px solid #444; font-size: clamp(12px, 1.2vw, 16px); line-height: 1.5; white-space: nowrap; }
+.source-panel > p span { color: #777; }
+.source-panel dl { margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); }
+.source-panel dl div { min-height: 96px; padding: 18px; border-bottom: 1px solid #333; }
+.source-panel dl div:nth-child(odd) { border-right: 1px solid #333; }
+.source-panel dt { margin-bottom: 26px; color: #777; font-size: 9px; font-weight: 700; letter-spacing: .12em; }
+.source-panel dd { margin: 0; color: var(--white); font-size: 11px; line-height: 1.4; }
 .use-cases { padding: 110px 6vw; }
 .use-case-intro { display: grid; grid-template-columns: .6fr 1.4fr; align-items: start; gap: 18px 40px; }
 .use-case-intro .eyebrow { grid-row: 1 / span 2; padding-top: 9px; }
@@ -172,6 +185,7 @@ footer > div:last-child { justify-self: end; display: flex; gap: 22px; font-size
   .use-case-intro .eyebrow, .use-case-intro > p:last-child { grid-column: 1; grid-row: auto; }
   .use-case-intro > p:last-child { margin-top: 12px; }
   .security { grid-template-columns: 1fr; }
+  .open-source { grid-template-columns: 1fr; align-items: start; }
   .beta-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -198,8 +212,8 @@ footer > div:last-child { justify-self: end; display: flex; gap: 22px; font-size
   .terminal-head span:first-child { max-width: 110px; overflow: hidden; white-space: nowrap; }
   .terminal-body { padding: 20px 13px; font-size: 9px; }
   .proof-strip { min-height: 66px; padding: 0 20px; }
-  .use-cases, .workflow, .architecture, .sessions, .security, .beta, .faq, .final-cta { padding: 76px 20px; }
-  .use-case-intro h2, .section-heading h2, .sessions h2, .security h2, .beta h2, .final-cta h2 { font-size: 45px; }
+  .open-source, .use-cases, .workflow, .architecture, .sessions, .security, .beta, .faq, .final-cta { padding: 76px 20px; }
+  .open-source-intro h2, .use-case-intro h2, .section-heading h2, .sessions h2, .security h2, .beta h2, .final-cta h2 { font-size: 45px; }
   .agent-boundary { margin-top: 50px; }
   .agent-columns, .use-case-grid, .steps, .mode-grid { grid-template-columns: 1fr; }
   .agent-columns article { padding: 24px; }
@@ -212,6 +226,11 @@ footer > div:last-child { justify-self: end; display: flex; gap: 22px; font-size
   .sessions { grid-template-columns: 1fr; gap: 28px; }
   .sessions dl div { grid-template-columns: 100px 1fr; }
   .security { gap: 35px; }
+  .open-source { gap: 42px; }
+  .source-panel-head { align-items: flex-start; flex-direction: column; justify-content: center; gap: 6px; }
+  .source-panel > p { padding-left: 14px; padding-right: 14px; gap: 8px; white-space: normal; overflow-wrap: anywhere; font-size: 11px; }
+  .source-panel dl { grid-template-columns: 1fr; }
+  .source-panel dl div:nth-child(odd) { border-right: 0; }
   .beta-grid { grid-template-columns: 1fr; }
   .beta-grid > div { min-height: 130px; }
   .beta-grid p { margin-top: 40px; }
