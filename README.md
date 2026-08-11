@@ -1,21 +1,42 @@
 # Skep
 
-Skep is a native macOS app for managing persistent, hardware-isolated
-development workspaces on this Mac or a remote Linux VM. Local workspaces use
-Microsandbox's native Apple Silicon virtualization; remote hosts connect through
-the user's existing OpenSSH or Google Cloud IAP setup. Both routes use the same
-small Rust control service and [Microsandbox](https://github.com/superradcompany/microsandbox).
+[![CI](https://github.com/storozhenko98/skep/actions/workflows/ci.yml/badge.svg)](https://github.com/storozhenko98/skep/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-black.svg)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-14%2B-black.svg)](https://skep-compute.vercel.app/download)
+
+Skep gives every coding agent its own persistent Linux microVM. Each workspace
+has a separate filesystem, Docker daemon, databases, ports, and machine state,
+so parallel tasks cannot collide through shared development infrastructure.
+
+The native macOS app runs workspaces on an Apple Silicon Mac or a Linux VM you
+already control. Remote hosts connect through the user's existing OpenSSH or
+Google Cloud IAP setup. Both routes use the same small Rust control service and
+[Microsandbox](https://github.com/superradcompany/microsandbox).
 
 **Beta:** [product site](https://skep-compute.vercel.app) ·
 [download the current Apple Silicon build](https://skep-compute.vercel.app/download)
 
-> **MVP status:** implemented and locally packaged. The native local transport,
-> SSH transport, daemon protocol, host audit, template/workspace lifecycle,
-> reboot reconciliation, and embedded Ghostty terminal are working. A real
-> Ubuntu builder has completed tool installation, template publication,
-> workspace launch, terminal access, stop/start, autostart, and guarded cleanup
-> through the local Apple Silicon control path. The supplied remote test VM
-> still does not expose `/dev/kvm`.
+![Skep — isolated compute that stays yours](website/public/og.png)
+
+> **Open-source beta:** the native local transport, SSH and IAP transports,
+> daemon protocol, host installation and audit, builder/template/workspace
+> lifecycle, reboot reconciliation, and embedded Ghostty terminal are working.
+> Local workspaces have completed the complete create, customize, publish,
+> launch, reconnect, stop/start, autostart, and guarded-cleanup workflow. Remote
+> workspaces require an Ubuntu host that exposes working KVM support.
+
+## Try it
+
+The shortest path needs only an Apple Silicon Mac running macOS 14 or newer:
+
+1. [Download the signed DMG](https://skep-compute.vercel.app/download), open it,
+   and drag Skep to Applications.
+2. Select **This Mac** and let Skep install its user-owned local runtime. This
+   does not require an account, SSH, or an administrator install.
+3. Create a builder, install your project and preferred CLI agent, and publish
+   the builder as a reusable template.
+4. Launch one persistent workspace per task. Each workspace receives its own
+   Linux filesystem and Docker environment.
 
 ## What is here
 
@@ -49,6 +70,22 @@ Skep uses four product nouns:
 | **Builder** | An editable microVM used to prepare a reusable environment. |
 | **Template** | A verified Microsandbox disk snapshot plus its launch profile. |
 | **Workspace** | A persistent microVM created from a template. |
+
+## Why a microVM?
+
+Skep is infrastructure for coding agents, not another agent UI:
+
+| Approach | What remains shared | What Skep changes |
+| --- | --- | --- |
+| Git branches and worktrees | Host packages, ports, processes, Docker, databases, and credentials | Every task runs in a separate Linux machine. |
+| Dev Containers | The container runtime and host kernel; often the host Docker daemon | Every workspace has its own kernel boundary and Docker daemon. |
+| General-purpose VM tools | Provisioning exists, but the builder/template/workspace workflow is manual | Skep makes persistent agent workspaces the product model and navigation. |
+| Agent orchestrators | They commonly manage sessions or checkouts rather than the underlying machine | Skep does not wrap the agent; it isolates the environment where any CLI agent runs. |
+
+Skep is deliberately compatible with terminal-based tools such as Codex,
+Claude Code, and OpenCode. Install the tools you want in a builder, capture a
+template, and reuse that environment without giving Skep access to an agent
+account.
 
 ## Architecture
 
@@ -219,7 +256,7 @@ Skep records and reapplies them. Docker data is kept on a separate ext4 named
 volume because Docker `overlay2` cannot safely use Microsandbox's overlay root
 as its backing filesystem.
 
-## MVP boundaries
+## Current scope
 
 Included now:
 
@@ -232,7 +269,7 @@ Included now:
 - builder, template, export, workspace, and autostart lifecycle;
 - KVM, host resource, Microsandbox, IPv4, and IPv6 reporting.
 
-Still to do after the local end-to-end run:
+Not included in the current beta:
 
 - GCE instance discovery/creation and cloud-side nested-virtualization checks;
 - reconnecting to the same long-running shell/agent process rather than opening
@@ -273,5 +310,5 @@ Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the development environment,
 verification commands, and pull-request expectations. Use
 [GitHub Issues](https://github.com/storozhenko98/skep/issues) for bugs and
 focused feature requests. Vulnerabilities must be reported privately according
-to [SECURITY.md](SECURITY.md). The repository visibility and launch gates are
-tracked in [docs/open-source-release.md](docs/open-source-release.md).
+to [SECURITY.md](SECURITY.md). Public release and verification gates are tracked
+in [docs/open-source-release.md](docs/open-source-release.md).

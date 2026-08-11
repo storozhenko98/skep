@@ -14,6 +14,12 @@ version plus a monotonically increasing macOS build number.
   redistributed dependency licenses.
 - Removed generated website and release artifacts from version control.
 
+## 0.1.2 - 2026-08-10
+
+- Reworked builder and workspace terminals as dedicated, resizable native
+  windows with Mac clipboard integration and precise trackpad scrolling. See
+  [docs/releases/0.1.2.md](docs/releases/0.1.2.md).
+
 ## 0.1.1 - 2026-08-10
 
 - Added complete, typed-confirmation removal of Skep-managed data from a remote

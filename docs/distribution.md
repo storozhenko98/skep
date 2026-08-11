@@ -1,9 +1,9 @@
 # Distribution and updates
 
-Skep is currently distributed as a signed beta. Repository visibility is a
-separate release decision and must remain private until the owner explicitly
-changes it. Vercel serves only the static product site, the packaged macOS
-application, release notes, checksums, and the Sparkle appcast.
+Skep is distributed as an open-source beta. The public GitHub repository is the
+source of record. Vercel serves only the static product site, packaged macOS
+application, release notes, checksums, and Sparkle appcast; it does not receive
+release credentials or private signing material.
 
 Production endpoints:
 
@@ -21,6 +21,10 @@ Versioned artifacts include both values so a signing-only rebuild never replaces
 previously published bytes or becomes invisible to Sparkle. The public website
 serves a signed, notarized DMG with an Applications shortcut; Sparkle retains its
 independently signed ZIP archives for in-app updates.
+
+Every public version should also have a matching Git tag and GitHub Release.
+Attach the notarized DMG and the release-specific checksum file so users can
+obtain and verify the installer without depending on the product-site redirect.
 
 Create the complete local release with:
 

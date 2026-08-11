@@ -1,8 +1,8 @@
 # Open-source release checklist
 
-Repository visibility must remain private until every required item below is
-complete. Licensing source code and publishing a repository are separate acts;
-this repository can be prepared and licensed without changing its visibility.
+The repository is public. Re-run this checklist before every public tag or
+installer announcement so a source release, signed application, update feed,
+and product site describe the same version.
 
 ## Ownership and provenance
 
@@ -22,22 +22,20 @@ this repository can be prepared and licensed without changing its visibility.
 - `cargo fmt`, Clippy, Rust tests, Swift tests, and website validation pass.
 - `RUST_THIRD_PARTY_LICENSES.html` is regenerated from the locked dependency
   graph and committed without a diff.
-- The website source under `website/public` is unchanged unless a separate web
-  copy review explicitly approves changes.
+- Website changes receive the same source, privacy, and link checks as native
+  application changes.
 - Build output, signed archives, DMGs, app bundles, local credentials, and
   `.vercel` state are ignored and absent from reachable Git history.
 
-## GitHub settings at launch
+## Public GitHub settings
 
-- Change visibility only as an explicit final action.
 - Set the repository homepage to <https://skep-compute.vercel.app> and add
   focused topics such as `coding-agents`, `macos`, `microvm`, `rust`, and
   `swift`.
 - Enable Issues and private vulnerability reporting.
 - Enable secret scanning, push protection, dependency alerts, and automated
   security updates where GitHub makes them available.
-- Require the CI workflow on the default branch and prevent force pushes after
-  the cleaned history is published.
+- Require the CI workflow on the default branch and prevent force pushes.
 - Review the repository in a signed-out browser session so README links,
   images, downloads, issue forms, and security-reporting links work publicly.
 
