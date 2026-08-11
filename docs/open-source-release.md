@@ -18,7 +18,7 @@ this repository can be prepared and licensed without changing its visibility.
 ## Repository contents
 
 - `LICENSE`, dependency notices, acknowledgments, contribution guidance,
-  security policy, support policy, and Code of Conduct are present.
+  security policy, and support policy are present.
 - `cargo fmt`, Clippy, Rust tests, Swift tests, and website validation pass.
 - `RUST_THIRD_PARTY_LICENSES.html` is regenerated from the locked dependency
   graph and committed without a diff.

@@ -1,7 +1,7 @@
 # Contributing to Skep
 
-Thanks for helping improve Skep. This project spans a native macOS client, a
-Rust host control plane, Linux installation scripts, and a static website.
+Skep spans a native macOS client, a Rust host control plane, Linux installation
+scripts, and a static website.
 Changes should preserve the trust boundary described in
 [docs/architecture.md](docs/architecture.md): remote access stays inside the
 user's existing SSH or Google Cloud transport, and `skepd` listens only on a
@@ -71,5 +71,4 @@ By submitting a contribution, you agree that it is your original work or that
 you have the right to submit it, and that it is licensed under the Apache
 License 2.0 in accordance with this repository's [LICENSE](LICENSE).
 
-Please follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report security issues
-privately according to [SECURITY.md](SECURITY.md).
+Report security issues privately according to [SECURITY.md](SECURITY.md).
