@@ -4,6 +4,7 @@ import SkepCore
 public struct TerminalSession: Identifiable, Equatable, Sendable {
     public enum Target: Equatable, Sendable {
         case host
+        case builder(id: String, name: String)
         case workspace(id: String, name: String)
     }
 
@@ -20,13 +21,24 @@ public struct TerminalSession: Identifiable, Equatable, Sendable {
     public var title: String {
         switch target {
         case .host: "\(host.name) — host terminal"
+        case let .builder(_, name): "\(name) — builder terminal"
         case let .workspace(_, name): "\(name) — workspace terminal"
         }
     }
 
+    public var contextLabel: String {
+        switch target {
+        case .host: "HOST SHELL"
+        case .builder: "BUILDER SHELL"
+        case .workspace: "WORKSPACE SHELL"
+        }
+    }
+
     public var workspaceID: String? {
-        guard case let .workspace(id, _) = target else { return nil }
-        return id
+        switch target {
+        case .host: nil
+        case let .builder(id, _), let .workspace(id, _): id
+        }
     }
 
     public func matches(hostID: UUID, workspaceID: String) -> Bool {
@@ -41,7 +53,7 @@ public struct TerminalSession: Identifiable, Equatable, Sendable {
         switch target {
         case .host:
             try host.interactiveSSHArguments()
-        case let .workspace(id, _):
+        case let .builder(id, _), let .workspace(id, _):
             try host.workspaceShellInvocation(workspaceID: id)
         }
     }

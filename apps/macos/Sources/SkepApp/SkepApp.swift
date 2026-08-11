@@ -1,4 +1,5 @@
 import SkepCore
+import SkepTerminal
 import SwiftUI
 
 @main
@@ -25,6 +26,27 @@ struct SkepApp: App {
                 .keyboardShortcut("u", modifiers: [.command, .shift])
             }
         }
+
+        Window("Skep Terminal", id: "terminal") {
+            Group {
+                if let session = model.activeTerminal {
+                    TerminalPanel(session: session)
+                        .id(session.id)
+                } else {
+                    ContentUnavailableView(
+                        "No terminal selected",
+                        systemImage: "terminal",
+                        description: Text("Open a host, builder, or workspace terminal from the main window.")
+                    )
+                }
+            }
+            .preferredColorScheme(
+                SkepAppearance(rawValue: appearance)?.colorScheme ?? .dark
+            )
+            .tint(.primary)
+        }
+        .defaultSize(width: 1100, height: 720)
+        .windowResizability(.contentMinSize)
 
         Settings {
             SettingsView(updates: updates)

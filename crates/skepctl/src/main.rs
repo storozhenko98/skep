@@ -1,6 +1,6 @@
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
-use std::process::Command as StdCommand;
+use std::process::{Command as StdCommand, Stdio};
 
 use clap::{Parser, Subcommand};
 use serde_json::Value;
@@ -45,6 +45,24 @@ enum Commands {
     WorkspaceShell { workspace_id: String },
 }
 
+const TERMINAL_INTEGRATION_SCRIPT: &str = r#"set -eu
+if command -v tmux >/dev/null 2>&1; then
+  config=/etc/tmux.conf
+  marker='# BEGIN SKEP TERMINAL INTEGRATION'
+  if ! grep -qF "$marker" "$config" 2>/dev/null; then
+    cat >>"$config" <<'EOF'
+
+# BEGIN SKEP TERMINAL INTEGRATION
+# Forward OSC 52 clipboard writes from terminal applications to the Skep client.
+set -g set-clipboard on
+set -as terminal-features ',xterm*:clipboard'
+# END SKEP TERMINAL INTEGRATION
+EOF
+  fi
+  tmux source-file "$config" >/dev/null 2>&1 || true
+fi
+"#;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
@@ -81,6 +99,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::process::exit(1);
             }
             let workspace: Workspace = serde_json::from_value(response.result.unwrap_or_default())?;
+            prepare_terminal_integration(
+                &args.microsandbox_bin,
+                &args.microsandbox_home,
+                &workspace.runtime_name,
+            );
             let error = StdCommand::new(&args.microsandbox_bin)
                 .env("MSB_HOME", &args.microsandbox_home)
                 .args(["ssh", &workspace.runtime_name])
@@ -89,6 +112,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
+}
+
+fn prepare_terminal_integration(
+    microsandbox_bin: &PathBuf,
+    microsandbox_home: &PathBuf,
+    runtime_name: &str,
+) {
+    let _ = StdCommand::new(microsandbox_bin)
+        .env("MSB_HOME", microsandbox_home)
+        .args([
+            "exec",
+            runtime_name,
+            "--",
+            "sh",
+            "-lc",
+            TERMINAL_INTEGRATION_SCRIPT,
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
 }
 
 async fn bridge(socket: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
@@ -124,4 +168,18 @@ async fn call(
     let mut line = String::new();
     BufReader::new(stream).read_line(&mut line).await?;
     Ok(serde_json::from_str(&line)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TERMINAL_INTEGRATION_SCRIPT;
+
+    #[test]
+    fn terminal_integration_forwards_tmux_clipboard_sequences() {
+        assert!(TERMINAL_INTEGRATION_SCRIPT.contains("set -g set-clipboard on"));
+        assert!(
+            TERMINAL_INTEGRATION_SCRIPT.contains("set -as terminal-features ',xterm*:clipboard'")
+        );
+        assert!(TERMINAL_INTEGRATION_SCRIPT.contains("tmux source-file"));
+    }
 }
