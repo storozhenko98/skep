@@ -27,6 +27,58 @@ import Testing
     #expect(!invocation.arguments.contains("/usr/bin/sudo"))
 }
 
+@Test func builderTerminalUsesBuilderPresentationAndWorkspaceShell() throws {
+    let host = SSHHost(name: "test", hostname: "example.test", username: "operator")
+    let session = TerminalSession(
+        host: host,
+        target: .builder(id: "builder-id", name: "Base")
+    )
+
+    #expect(session.title == "Base — builder terminal")
+    #expect(session.contextLabel == "BUILDER SHELL")
+    #expect(session.workspaceID == "builder-id")
+    let invocation = try session.invocation()
+    #expect(invocation.arguments.suffix(5) == [
+        "/usr/bin/sudo", "-n", "/usr/local/bin/skepctl", "workspace-shell", "builder-id",
+    ])
+}
+
+@Test func preciseScrollMetadataPreservesTrackpadAndMomentumState() {
+    #expect(ghosttyScrollModifiers(precise: false, momentumPhase: []) == 0)
+    #expect(ghosttyScrollModifiers(precise: true, momentumPhase: []) == 1)
+    #expect(
+        ghosttyScrollModifiers(precise: true, momentumPhase: .changed)
+            == 1 | (Int32(GHOSTTY_MOUSE_MOMENTUM_CHANGED.rawValue) << 1)
+    )
+    #expect(
+        ghosttyScrollModifiers(precise: false, momentumPhase: .ended)
+            == Int32(GHOSTTY_MOUSE_MOMENTUM_ENDED.rawValue) << 1
+    )
+}
+
+@Test func terminalLeavesNativeWindowAndApplicationShortcutsToAppKit() {
+    for key in ["q", "w", "m", "h"] {
+        #expect(
+            terminalShortcutBelongsToAppKit(
+                charactersIgnoringModifiers: key,
+                modifiers: .command
+            )
+        )
+    }
+    #expect(
+        terminalShortcutBelongsToAppKit(
+            charactersIgnoringModifiers: "h",
+            modifiers: [.command, .option]
+        )
+    )
+    #expect(
+        !terminalShortcutBelongsToAppKit(
+            charactersIgnoringModifiers: "c",
+            modifiers: .command
+        )
+    )
+}
+
 @Test func workspaceTerminalSessionHasStableResourceIdentity() {
     let host = SSHHost(name: "test", hostname: "example.test", username: "operator")
     let session = TerminalSession(

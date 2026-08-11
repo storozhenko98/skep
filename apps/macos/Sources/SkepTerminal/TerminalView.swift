@@ -1,10 +1,45 @@
 import SkepCore
 import SwiftUI
 
+@MainActor
+final class TerminalController: ObservableObject {
+    private weak var terminalView: GhosttyTerminalNSView?
+
+    func attach(_ view: GhosttyTerminalNSView) {
+        terminalView = view
+    }
+
+    func detach(_ view: GhosttyTerminalNSView) {
+        guard terminalView === view else { return }
+        terminalView = nil
+    }
+
+    func copySelection() {
+        terminalView?.copy(nil)
+        focus()
+    }
+
+    func paste() {
+        terminalView?.paste(nil)
+        focus()
+    }
+
+    func selectAll() {
+        terminalView?.selectAll(nil)
+        focus()
+    }
+
+    func focus() {
+        guard let terminalView else { return }
+        terminalView.window?.makeFirstResponder(terminalView)
+    }
+}
+
 public struct TerminalView: NSViewRepresentable {
     public let session: TerminalSession
     public let isActive: Bool
     public let onProcessExit: () -> Void
+    private let terminalController: TerminalController?
 
     public init(
         session: TerminalSession,
@@ -14,6 +49,19 @@ public struct TerminalView: NSViewRepresentable {
         self.session = session
         self.isActive = isActive
         self.onProcessExit = onProcessExit
+        terminalController = nil
+    }
+
+    init(
+        session: TerminalSession,
+        isActive: Bool = true,
+        terminalController: TerminalController,
+        onProcessExit: @escaping () -> Void = {}
+    ) {
+        self.session = session
+        self.isActive = isActive
+        self.onProcessExit = onProcessExit
+        self.terminalController = terminalController
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -26,6 +74,7 @@ public struct TerminalView: NSViewRepresentable {
             return GhosttyTerminalNSView(
                 runtime: runtime,
                 command: invocation.shellCommand,
+                terminalController: terminalController,
                 onProcessExit: onProcessExit
             )
         } catch {
@@ -46,10 +95,10 @@ public struct TerminalView: NSViewRepresentable {
 }
 
 public struct TerminalPanel: View {
-    @Environment(\.dismiss) private var dismiss
     public let session: TerminalSession
     @State private var renderedSession: TerminalSession
     @State private var disconnected = false
+    @StateObject private var terminalController = TerminalController()
 
     public init(session: TerminalSession) {
         self.session = session
@@ -58,9 +107,17 @@ public struct TerminalPanel: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 12) {
                 Image(systemName: "terminal.fill")
-                Text(renderedSession.title).fontWeight(.semibold)
+                    .font(.system(size: 13, weight: .semibold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(renderedSession.title)
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(renderedSession.contextLabel)
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .tracking(1.1)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 if disconnected {
                     Text("CONNECTION LOST")
@@ -68,13 +125,27 @@ public struct TerminalPanel: View {
                         .foregroundStyle(.secondary)
                     Button("Reconnect", action: reconnect)
                 }
-                Button("Close") { dismiss() }
+                Button {
+                    terminalController.copySelection()
+                } label: {
+                    Label("Copy", systemImage: "doc.on.doc")
+                }
+                .keyboardShortcut("c", modifiers: .command)
+                Button {
+                    terminalController.paste()
+                } label: {
+                    Label("Paste", systemImage: "doc.on.clipboard")
+                }
+                .keyboardShortcut("v", modifiers: .command)
             }
-            .padding(.horizontal, 14)
-            .frame(height: 44)
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            .padding(.horizontal, 16)
+            .frame(height: 50)
             .background(.bar)
             TerminalView(
                 session: renderedSession,
+                terminalController: terminalController,
                 onProcessExit: {
                     Task { @MainActor in disconnected = true }
                 }
@@ -82,7 +153,8 @@ public struct TerminalPanel: View {
                 .id(renderedSession.id)
                 .background(Color.black)
         }
-        .frame(minWidth: 820, minHeight: 520)
+        .frame(minWidth: 900, minHeight: 560)
+        .onAppear { terminalController.focus() }
     }
 
     private func reconnect() {

@@ -6,6 +6,7 @@ final class GhosttyTerminalNSView: NSView {
     nonisolated(unsafe) private(set) var surface: ghostty_surface_t?
     private let command: String
     private let onProcessExit: () -> Void
+    private weak var terminalController: TerminalController?
     private var trackingArea: NSTrackingArea?
     private var isShuttingDown = false
 
@@ -18,14 +19,21 @@ final class GhosttyTerminalNSView: NSView {
     override var acceptsFirstResponder: Bool { true }
     override var isFlipped: Bool { true }
 
-    init(runtime: GhosttyRuntime, command: String, onProcessExit: @escaping () -> Void = {}) {
+    init(
+        runtime: GhosttyRuntime,
+        command: String,
+        terminalController: TerminalController? = nil,
+        onProcessExit: @escaping () -> Void = {}
+    ) {
         self.command = command
+        self.terminalController = terminalController
         self.onProcessExit = onProcessExit
         super.init(frame: NSRect(x: 0, y: 0, width: 900, height: 560))
         wantsLayer = true
         layerContentsRedrawPolicy = .onSetNeedsDisplay
         autoresizingMask = [.width, .height]
         initializeSurface(runtime: runtime)
+        terminalController?.attach(self)
     }
 
     @available(*, unavailable)
@@ -69,6 +77,7 @@ final class GhosttyTerminalNSView: NSView {
 
     func shutdown() {
         isShuttingDown = true
+        terminalController?.detach(self)
         guard let surface else { return }
         ghostty_surface_free(surface)
         self.surface = nil
@@ -155,7 +164,51 @@ final class GhosttyTerminalNSView: NSView {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.type == .keyDown else { return false }
+        let modifiers = event.modifierFlags
+            .intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .numericPad, .function])
+        if terminalShortcutBelongsToAppKit(
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers,
+            modifiers: modifiers
+        ) {
+            return false
+        }
+        if modifiers == .command {
+            switch event.charactersIgnoringModifiers?.lowercased() {
+            case "c":
+                copy(nil)
+                return true
+            case "v":
+                paste(nil)
+                return true
+            case "a":
+                selectAll(nil)
+                return true
+            default:
+                break
+            }
+        }
         return sendKey(event, action: event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS)
+    }
+
+    @IBAction func copy(_ sender: Any?) {
+        performBindingAction("copy_to_clipboard")
+    }
+
+    @IBAction func paste(_ sender: Any?) {
+        performBindingAction("paste_from_clipboard")
+    }
+
+    @IBAction override func selectAll(_ sender: Any?) {
+        performBindingAction("select_all")
+    }
+
+    @discardableResult
+    func performBindingAction(_ action: String) -> Bool {
+        guard let surface else { return false }
+        return action.withCString { pointer in
+            ghostty_surface_binding_action(surface, pointer, UInt(action.utf8.count))
+        }
     }
 
     @discardableResult
@@ -238,13 +291,33 @@ final class GhosttyTerminalNSView: NSView {
 
     override func scrollWheel(with event: NSEvent) {
         guard let surface else { return }
-        var x = event.scrollingDeltaX
-        var y = event.scrollingDeltaY
-        if event.hasPreciseScrollingDeltas {
-            x *= 2
-            y *= 2
+        ghostty_surface_mouse_scroll(
+            surface,
+            event.scrollingDeltaX,
+            event.scrollingDeltaY,
+            ghosttyScrollModifiers(
+                precise: event.hasPreciseScrollingDeltas,
+                momentumPhase: event.momentumPhase
+            )
+        )
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        window?.makeFirstResponder(self)
+        let menu = NSMenu()
+        if let surface, ghostty_surface_has_selection(surface) {
+            menu.addItem(terminalMenuItem("Copy", action: #selector(copy(_:))))
         }
-        ghostty_surface_mouse_scroll(surface, x, y, 0)
+        menu.addItem(terminalMenuItem("Paste", action: #selector(paste(_:))))
+        menu.addItem(.separator())
+        menu.addItem(terminalMenuItem("Select All", action: #selector(selectAll(_:))))
+        return menu
+    }
+
+    private func terminalMenuItem(_ title: String, action: Selector) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        return item
     }
 
     private func sendMousePosition(_ event: NSEvent) {
@@ -281,6 +354,35 @@ final class GhosttyTerminalNSView: NSView {
     func setCursorVisible(_ visible: Bool) {
         if visible { NSCursor.unhide() } else { NSCursor.hide() }
     }
+}
+
+func terminalShortcutBelongsToAppKit(
+    charactersIgnoringModifiers: String?,
+    modifiers: NSEvent.ModifierFlags
+) -> Bool {
+    let key = charactersIgnoringModifiers?.lowercased()
+    if modifiers == .command {
+        return key == "q" || key == "w" || key == "m" || key == "h"
+    }
+    return modifiers == [.command, .option] && key == "h"
+}
+
+func ghosttyScrollModifiers(
+    precise: Bool,
+    momentumPhase: NSEvent.Phase
+) -> ghostty_input_scroll_mods_t {
+    var modifiers: Int32 = precise ? 1 : 0
+    let momentum: ghostty_input_mouse_momentum_e = switch momentumPhase {
+    case .began: GHOSTTY_MOUSE_MOMENTUM_BEGAN
+    case .stationary: GHOSTTY_MOUSE_MOMENTUM_STATIONARY
+    case .changed: GHOSTTY_MOUSE_MOMENTUM_CHANGED
+    case .ended: GHOSTTY_MOUSE_MOMENTUM_ENDED
+    case .cancelled: GHOSTTY_MOUSE_MOMENTUM_CANCELLED
+    case .mayBegin: GHOSTTY_MOUSE_MOMENTUM_MAY_BEGIN
+    default: GHOSTTY_MOUSE_MOMENTUM_NONE
+    }
+    modifiers |= Int32(momentum.rawValue) << 1
+    return modifiers
 }
 
 private func ghosttyModifiers(_ flags: NSEvent.ModifierFlags) -> ghostty_input_mods_e {

@@ -159,8 +159,14 @@ final class GhosttyRuntime: @unchecked Sendable {
         state: UnsafeMutableRawPointer?
     ) -> Bool {
         guard let view = view(from: userdata), let surface = view.surface else { return false }
-        let value = MainActor.assumeIsolated {
-            NSPasteboard.general.string(forType: .string)
+        let value: String? = if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                NSPasteboard.general.string(forType: .string)
+            }
+        } else {
+            DispatchQueue.main.sync {
+                NSPasteboard.general.string(forType: .string)
+            }
         }
         guard let value else { return false }
         value.withCString { pointer in
@@ -198,11 +204,22 @@ final class GhosttyRuntime: @unchecked Sendable {
             break
         }
         guard let value else { return }
-        MainActor.assumeIsolated {
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setString(value, forType: .string)
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                writeStandardClipboard(value)
+            }
+        } else {
+            Task { @MainActor in
+                writeStandardClipboard(value)
+            }
         }
+    }
+
+    @MainActor
+    private static func writeStandardClipboard(_ value: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(value, forType: .string)
     }
 
     private static func closeSurface(_ userdata: UnsafeMutableRawPointer?, processAlive: Bool) {

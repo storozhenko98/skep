@@ -6,6 +6,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: AppModel
     @AppStorage("skep.appearance") private var appearance = SkepAppearance.dark.rawValue
     @StateObject private var connectivity = NetworkReachability()
@@ -25,9 +26,6 @@ struct ContentView: View {
         .background(SkepUI.canvas(colorScheme))
         .sheet(isPresented: $model.showingAddHost) {
             AddHostView { model.addHost($0) }
-        }
-        .sheet(item: $model.activeTerminal) { session in
-            TerminalPanel(session: session)
         }
         .alert(
             model.pendingDeletion?.kind == .builder ? "Delete builder?" : "Destroy workspace?",
@@ -100,6 +98,10 @@ struct ContentView: View {
             if previous == false, current == true {
                 model.beginAutomaticTerminalReconnectWindow()
             }
+        }
+        .onChange(of: model.activeTerminal?.id) { _, sessionID in
+            guard sessionID != nil else { return }
+            openWindow(id: "terminal")
         }
     }
 

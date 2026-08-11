@@ -301,6 +301,19 @@ impl SkepService {
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq git curl xz-utils ca-certificates git-lfs docker.io tmux
+config=/etc/tmux.conf
+marker='# BEGIN SKEP TERMINAL INTEGRATION'
+if ! grep -qF "$marker" "$config" 2>/dev/null; then
+  cat >>"$config" <<'EOF'
+
+# BEGIN SKEP TERMINAL INTEGRATION
+# Forward OSC 52 clipboard writes from terminal applications to the Skep client.
+set -g set-clipboard on
+set -as terminal-features ',xterm*:clipboard'
+# END SKEP TERMINAL INTEGRATION
+EOF
+fi
+tmux source-file "$config" >/dev/null 2>&1 || true
 cat >/usr/local/bin/start-docker <<'EOF'
 #!/bin/sh
 set -eu
@@ -1365,6 +1378,9 @@ mod tests {
             .await
             .unwrap();
         assert!(prepared_builder.tools_installed);
+        let msb_log = std::fs::read_to_string(temp.path().join("msb.log")).unwrap();
+        assert!(msb_log.contains("set -g set-clipboard on"));
+        assert!(msb_log.contains("set -as terminal-features ',xterm*:clipboard'"));
         let template = service
             .publish_template(PublishTemplateParams {
                 workspace_id: builder.id.clone(),

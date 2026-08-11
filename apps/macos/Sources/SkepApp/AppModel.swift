@@ -433,7 +433,9 @@ final class AppModel: ObservableObject {
         }
         activeTerminal = TerminalSession(
             host: host,
-            target: .workspace(id: workspace.id, name: workspace.name)
+            target: workspace.kind == .builder
+                ? .builder(id: workspace.id, name: workspace.name)
+                : .workspace(id: workspace.id, name: workspace.name)
         )
     }
 
